@@ -1,0 +1,87 @@
+package database
+
+import (
+	"database/sql"
+	"log"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+type DbHelper struct {
+	db       *sql.DB
+	ImeiToId map[string]string
+	IdToImei map[string]string
+}
+
+func (s *DbHelper) SetDb(db *sql.DB) {
+	s.db = db
+}
+
+func (s *DbHelper) Close() {
+	if s.db {
+		s.db.Close()
+		s.db = nil
+	}
+}
+
+func (s *DbHelper) GetImeiById(id string) (string, error) {
+	if imei, ok := s.IdToImei[id]; ok {
+		return imei
+	} else {
+		rows, err := db.Query("select id, deviceImei from device where id=?", id)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer rows.Close()
+		var (
+			id         string
+			deviceImei string
+		)
+		rows.Next() {
+			err := rows.Scan(&id, &deviceImei)
+			if err != nil {
+				log.Fatal(err)
+			}
+			helper.IdToImei[id] = deviceImei
+			helper.ImeiToId[deviceImei] = id
+		}
+		err = rows.Err()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+//user:password@tcp(127.0.0.1:3306)/hello
+func New(conf string) (DbHelper, error) {
+	helper := &DbHelper{}
+	db, err := sql.Open("mysql", conf)
+	DbHelper.SetDb(db)
+
+	//populate maps
+	rows, err := db.Query("select id, deviceImei from device")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer rows.Close()
+	var (
+		id         string
+		deviceImei string
+	)
+	for rows.Next() {
+		err := rows.Scan(&id, &deviceImei)
+		if err != nil {
+			log.Fatal(err)
+		}
+		helper.IdToImei[id] = deviceImei
+		helper.ImeiToId[deviceImei] = id
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return DbHelper, error
+}

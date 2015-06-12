@@ -1,0 +1,18 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+)
+
+func main() {
+
+	TCPServer()
+	fmt.Println("Server Started")
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGINT)
+	<-c
+}

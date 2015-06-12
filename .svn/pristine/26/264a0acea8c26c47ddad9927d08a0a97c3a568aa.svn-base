@@ -1,0 +1,100 @@
+package nbsihai
+
+import (
+	"errors"
+	"fmt"
+	. "lbsas/datatypes"
+	"log"
+	"time"
+)
+
+// module exported globals
+var GlobalConfigTcp = &struct {
+	Addr, Protocol                                                        string
+	StartSymbol, EndSymbol                                                byte
+	ConnChainSize, ChanSize, ReaderNum, RetryNum, PacketMaxLen, WorkerNum int
+	ReadTimeoutSec                                                        time.Duration
+}{ // flags
+	Addr:           "0.0.0.0:8082",
+	Protocol:       "tcp",
+	ChanSize:       100,
+	ReaderNum:      4,
+	RetryNum:       3,
+	WorkerNum:      2,
+	ReadTimeoutSec: 20,
+	PacketMaxLen:   180,
+	StartSymbol:    '+',
+	EndSymbol:      '$',
+}
+
+var ErrorMessage = map[string]error{
+	"INVALID_PACKET_HT": errors.New("start/end symbol in packet is invalid"),
+}
+
+// module private globals
+var _MessageConstants = &struct {
+	ClassReport, ClassAT, ClassACK, ClassBuff []byte
+	Commands                                  map[string][]string
+	Delimiter                                 byte
+}{
+	[]byte("RESP:"), []byte("AT+"), []byte("ACK:"), []byte("BUFF:"),
+	map[string][]string{
+		"RESP:": {"GTCTN", "GTSTR", "GTRTL", "GTBL"},
+		"BUFF":  {"GTCTN", "GTSTR", "GTRTL"},
+		"ACK:":  {"GTHBD"},
+		"SACK:": {"GTHBD"},
+		"AT+":   {},
+	},
+	byte(','),
+}
+
+type RespMessage struct {
+}
+
+func TcpWorker(packetsChan chan *RawTcpPacket) {
+	for {
+		packet := <-packetsChan
+
+		// handle channel close event
+		if packet == nil {
+			log.Println("nil packet, close connection")
+			break
+		} else {
+			// data packet
+			log.Println(fmt.Sprintf("worker on: %s", packet.Buff[:]))
+			if !handlePacket(packet) {
+				continue
+			}
+		}
+	}
+}
+func handlePacket(packet *RawTcpPacket) bool {
+	buff := packet.Buff[1 : len(packet.Buff)-1]
+	if len(buff) == 0 {
+		log.Println("invalid packet, ignored")
+		return false
+	}
+
+	return true
+}
+
+// helper function
+// try to match '+' and '$'
+func IsWholePacket(buff []byte, whole *bool) (bool, error) {
+	for i := 0; i < len(buff); i++ {
+		switch buff[i] {
+		case GlobalConfigTcp.StartSymbol:
+			if *whole == false {
+				return false, ErrorMessage["INVALID_PACKET_HT"]
+			}
+			*whole = false
+		case GlobalConfigTcp.EndSymbol:
+			if *whole == true {
+				return false, ErrorMessage["INVALID_PACKET_HT"]
+			}
+			*whole = true
+		}
+	}
+	// TODO: is there a '\0' at the end?
+	return *whole && buff[len(buff)-1] == GlobalConfigTcp.EndSymbol, nil
+}

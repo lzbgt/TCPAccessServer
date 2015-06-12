@@ -1,0 +1,189 @@
+package nbsihai
+
+import (
+	"bytes"
+	"errors"
+	. "lbsas/datatypes"
+	"log"
+	"net"
+	"reflect"
+	"strings"
+	"time"
+)
+
+// module exported globals
+var GlobalConfigTcp = &struct {
+	Addr, Protocol                                                        string
+	StartSymbol, EndSymbol                                                byte
+	ConnChainSize, ChanSize, ReaderNum, RetryNum, PacketMaxLen, WorkerNum int
+	ReadTimeoutSec                                                        time.Duration
+}{ // flags
+	Addr:           "0.0.0.0:8082",
+	Protocol:       "tcp",
+	ChanSize:       100,
+	ReaderNum:      4,
+	RetryNum:       3,
+	WorkerNum:      2,
+	ReadTimeoutSec: 200,
+	PacketMaxLen:   180,
+	StartSymbol:    '+',
+	EndSymbol:      '$',
+}
+
+var ErrorMessage = map[string]error{
+	"INVALID_PACKET_HT":  errors.New("start/end symbol in packet is invalid"),
+	"INVALID_PACKET_LEN": errors.New("invalid packet length or num of fields"),
+}
+
+// module private globals
+var _MessageConstants = &struct {
+	ClassReport, ClassAT, ClassACK, ClassBuff string
+	Commands                                  map[string]interface{}
+	Delimiter                                 byte
+}{
+	"RESP:", "AT+", "ACK:", "BUFF:",
+	map[string]interface{}{
+		"RESP:GTCTN": MessageResp{},
+		"RESP:GTSTR": MessageResp{},
+		"RESP:GTRTL": MessageResp{},
+		"RESP:GTBL":  MessageResp{},
+		"BUFF:GTCTN": MessageResp{},
+		"BUFF:GTSTR": MessageResp{},
+		"BUFF:GTRTL": MessageResp{},
+	},
+	byte(','),
+}
+
+type MessageResp struct {
+	Command, //10
+	Version, //6
+	UID, //15, XX0000-XX-FFFF
+	Name, //10, IMEI
+	RID, //1, 0-4
+	RType, //1, 0|1
+	MoveStat, //1, 0|1|2
+	Temperature, //4, xx.x
+	BattPecent, //3, 0-100
+	GPSAccuracy, //<=2, 0|1-50
+	Speed, //<=5, 0.0-999.9km/h
+	Azimuth, //<=3, 0-359
+	Altitude, //<=8, -xxxxx.x
+	Longitude, //<=11, -xxx.xxxxx
+	Latitude, //<=10, -xx.xxxxxx
+	GPSUTime, //14, YYYYMMDDHHMMSS
+	MCC, //4, 0XXX
+	MNC, //4, 0XXX
+	LAC, //4, XXXX
+	CID, //4, XXXX
+	R1, //0
+	R2,
+	R3,
+	SendTime, //14
+	SeqNum []byte //4, 0000-FFFF
+}
+
+var dbhelper = 
+
+func (m *MessageResp) Parse(parts []string, conn *net.Conn) interface{} {
+	log.Println(reflect.TypeOf(m).String(), "paser called")
+	val := reflect.ValueOf(m).Elem()
+	if len(parts) != val.NumField() {
+		log.Println(ErrorMessage["INVALID_PACKET_LEN"])
+		return nil
+	}
+	for i := 0; i < val.NumField(); i++ {
+		valueField := val.Field(i)
+		valueField.SetBytes([]byte(parts[i]))
+	}
+
+	log.Printf("%v\n", *m)
+
+	return nil
+}
+
+func TcpWorker(packetsChan chan *RawTcpPacket) {
+	for {
+		packet := <-packetsChan
+
+		// handle channel close event
+		if packet == nil {
+			log.Println("nil packet, close connection")
+			break
+		} else {
+			// data packet
+			//log.Println(fmt.Sprintf("worker on: %s", packet.Buff[:]))
+			if !handlePacket(packet) {
+				continue
+			}
+		}
+	}
+}
+
+func handlePacket(packet *RawTcpPacket) bool {
+	buff := packet.Buff[1 : len(packet.Buff)-1]
+	if len(buff) == 0 {
+		log.Println("invalid packet, ignored")
+		return false
+	}
+
+	//split
+	var sep bytes.Buffer
+	sep.WriteByte(GlobalConfigTcp.EndSymbol)
+	sep.WriteByte(GlobalConfigTcp.StartSymbol)
+	messages := strings.Split(string(buff), sep.String())
+
+	//var wg sync.WaitGroup
+	for _, v := range messages {
+		// log.Println(k, v)
+		// wg.Add(1)
+		parts := strings.Split(v, string(_MessageConstants.Delimiter))
+		// TODO remove me
+		/*
+			for i, j := range parts {
+				log.Println(i, ".", j)
+			}
+		*/
+		parseMessage(parts, packet.Conn)
+
+	}
+
+	return true
+}
+
+func parseMessage(parts []string, conn *net.Conn) interface{} {
+	if par := _MessageConstants.Commands[parts[0]]; par != nil {
+		switch par.(type) {
+		case MessageResp:
+			_par := par.(MessageResp)
+			_par.Parse(parts, conn)
+		default:
+			log.Println("unkown message")
+
+		}
+	} else {
+		log.Println("unkown cmd")
+	}
+
+	return nil
+}
+
+// helper function
+// try to match '+' and '$'
+func IsWholePacket(buff []byte, whole *bool) (bool, error) {
+	for i := 0; i < len(buff); i++ {
+		switch buff[i] {
+		case GlobalConfigTcp.StartSymbol:
+			if *whole == false {
+				return false, ErrorMessage["INVALID_PACKET_HT"]
+			}
+			*whole = false
+		case GlobalConfigTcp.EndSymbol:
+			if *whole == true {
+				return false, ErrorMessage["INVALID_PACKET_HT"]
+			}
+			*whole = true
+		}
+	}
+	// TODO: is there a '\0' at the end?
+	return *whole && buff[len(buff)-1] == GlobalConfigTcp.EndSymbol, nil
+}

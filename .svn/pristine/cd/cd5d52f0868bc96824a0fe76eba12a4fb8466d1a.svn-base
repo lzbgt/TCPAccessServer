@@ -1,0 +1,43 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"lbsas/tcp"
+	"lbsas/vendors/gl500/nbsihai"
+	"os"
+	"os/signal"
+	"syscall"
+
+	log "github.com/Sirupsen/logrus"
+)
+
+func main() {
+	var lvl log.Level
+	flagLvl := flag.String("log", "info", "log level")
+	flag.Parse()
+	switch *flagLvl {
+	case "debug":
+		lvl = log.DebugLevel
+	case "info":
+		lvl = log.InfoLevel
+	case "warn":
+		lvl = log.WarnLevel
+	case "error":
+		lvl = log.ErrorLevel
+	case "fatal":
+		lvl = log.FatalLevel
+	case "panic":
+		lvl = log.PanicLevel
+	}
+
+	fmt.Println("log level is:", *flagLvl)
+	log.SetLevel(lvl)
+	log.SetFormatter(&log.TextFormatter{})
+	tcp.New(nbsihai.New(), lvl)
+	log.Info("Server Started")
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+}
