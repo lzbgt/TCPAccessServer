@@ -10,6 +10,7 @@ import (
 	"flag"
 	. "lbsas/datatypes"
 	"lbsas/tcp"
+	"lbsas/utils"
 	"lbsas/vendors/gl500/nbsihai"
 	"os"
 	"os/signal"
@@ -53,21 +54,7 @@ func GetEnvCfg() *EnviromentCfg {
 	flagDBCacheSize := flag.Int64("dbcachesize", 8000000, "dbmessage cache size before saving to database")
 	flag.Parse()
 
-	switch *flagLvl {
-	case "debug":
-		lvl = log.DebugLevel
-	case "info":
-		lvl = log.InfoLevel
-	case "warn":
-		lvl = log.WarnLevel
-	case "error":
-		lvl = log.ErrorLevel
-	case "fatal":
-		lvl = log.FatalLevel
-	case "panic":
-		lvl = log.PanicLevel
-	}
-
+	lvl, _ = utils.String2LogLevel(*flagLvl)
 	env.LogLevel = lvl
 	env.DBMaxOpenConns = *flagMaxOpenConns
 	env.DBMaxIdleConns = *flagMaxIdleConns

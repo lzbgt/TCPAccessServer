@@ -12,9 +12,11 @@ import (
 	"errors"
 	"fmt"
 	. "lbsas/datatypes"
+	"lbsas/utils"
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -23,8 +25,8 @@ import (
 
 // globals
 type TCPServer struct {
-	StatTcp, StatTcpLast TCPStat
 	v                    Vendor
+	StatTcp, StatTcpLast TCPStat
 	Reportor             *log.Logger
 }
 
@@ -40,7 +42,7 @@ func New(v Vendor) *TCPServer {
 	log.SetFormatter(&log.TextFormatter{})
 	reportor.Level = log.DebugLevel
 
-	ret := &TCPServer{TCPStat{}, TCPStat{}, v, reportor}
+	ret := &TCPServer{v, TCPStat{}, TCPStat{}, reportor}
 	go ret.statusReport()
 
 	// log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime)
@@ -208,6 +210,7 @@ func (s *TCPServer) getStatus() []byte {
 	s.StatTcpLast.NumConnClosed = temp.NumConnClosed
 	s.StatTcpLast.NumConnCreated = temp.NumConnCreated
 	s.StatTcpLast.NumDBWriteMsgDropped = vendorStatTmp.DBWriteMsgDropped
+	s.StatTcpLast.NumDBMsgStored = vendorStatTmp.NumDBMsgStored
 
 	//
 	s.StatTcpLast.AvgWorkerTimeMicroSec = vendorStatTmp.AvgWorkerTimeMicroSec
@@ -232,8 +235,16 @@ func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 		switch coapi {
 		case "tcpstatus":
 			ret = s.getStatus()
+		case "set":
+			lvl, err := utils.String2LogLevel(r.FormValue("loglevel"))
+			if err == nil {
+				log.SetLevel(lvl)
+				s.v.SetLogLevel(lvl)
+			}
+			ret = []byte("{\"success\":true, \"msg\":\"loglevel set success\"}")
+
 		default:
-			ret = []byte("{\"failed\":true, \"msg\":\"unknown api\"}")
+			ret = []byte("{\"success\":false, \"msg\":\"unknown api\"}")
 
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -242,16 +253,15 @@ func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 		// write to database
 		s.Reportor.Info(string(s.getStatus()))
 	}
-
-	log.Debug(string(ret))
 }
 
 // timer triggered every 10s to report statistics
 func (s *TCPServer) statusReport() {
 	s.Reportor.Info("Report starting")
-	timeChan := time.NewTicker(time.Second * 10).C
+	timeChan := time.NewTicker(time.Second * 15).C
 	for {
 		<-timeChan
+		runtime.ReadMemStats(&s.StatTcpLast.MemStat)
 		s._apiHandlerTcp(nil, nil)
 	}
 	s.Reportor.Info("Report ended")

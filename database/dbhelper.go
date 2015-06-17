@@ -26,7 +26,7 @@ type DbHelper struct {
 	IdToImei  map[string]string
 	DBMsgChan chan IDBMessage
 	// stat
-	AvgDBTimeMicroSec int64
+	AvgDBTimeMicroSec, NumDBMsgStored uint64
 }
 
 func (s *DbHelper) GetImeiById(id string) (string, error) {
@@ -65,7 +65,8 @@ func (s *DbHelper) GetIdByImei(imei string) (string, error) {
 	if id, ok := s.ImeiToId[imei]; ok {
 		return id, nil
 	} else {
-		rows, err := s.Query("select id, deviceImei from device where deviceImei=?", id)
+		qStr := "select id, deviceImei from device where deviceImei=?"
+		rows, err := s.Query(qStr, imei)
 		if err != nil {
 			log.Error(err, imei)
 		}
@@ -78,11 +79,12 @@ func (s *DbHelper) GetIdByImei(imei string) (string, error) {
 		if rows.Next() {
 			err := rows.Scan(&id, &deviceImei)
 			if err != nil {
-				log.Error(err)
+				log.Error(err, ", Query:", qStr, imei)
 			}
 			s.IdToImei[id] = deviceImei
 			s.ImeiToId[deviceImei] = id
 		} else {
+			log.Error(sql.ErrNoRows, qStr, imei)
 			return "no such device", sql.ErrNoRows
 		}
 
@@ -101,7 +103,7 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 	}
 
 	helper := &DbHelper{db_, make(map[string]string), make(map[string]string),
-		make(chan IDBMessage, env.DBCacheSize), 0}
+		make(chan IDBMessage, env.DBCacheSize), 0, 0}
 
 	if err != nil {
 		return nil, err
@@ -120,31 +122,34 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 		}
 	})
 
-	//populate device id maps
-	sqlStr := "select id, deviceImei from device"
-	rows, err := helper.Query(sqlStr)
-	if err != nil {
-		return nil, err
-	}
+	/*
 
-	defer rows.Close()
-	var (
-		id         string
-		deviceImei string
-	)
-	for rows.Next() {
-		err := rows.Scan(&id, &deviceImei)
+		//populate device id maps
+		sqlStr := "select id, deviceImei from device"
+		rows, err := helper.Query(sqlStr)
 		if err != nil {
-			break
+			return nil, err
 		}
-		log.Debug(id, deviceImei)
-		helper.IdToImei[id] = deviceImei
-		helper.ImeiToId[deviceImei] = id
-	}
-	err = rows.Err()
-	if err != nil {
-		log.Error(err, ", SQL:", sqlStr)
-	}
+
+		defer rows.Close()
+		var (
+			id         string
+			deviceImei string
+		)
+		for rows.Next() {
+			err := rows.Scan(&id, &deviceImei)
+			if err != nil {
+				break
+			}
+			log.Debug(id, deviceImei)
+			helper.IdToImei[id] = deviceImei
+			helper.ImeiToId[deviceImei] = id
+		}
+		err = rows.Err()
+		if err != nil {
+			log.Error(err, ", SQL:", sqlStr)
+		}
+	*/
 
 	// setup dbworker pool
 	for i := 0; i < env.DBMaxOpenConns; i++ {
@@ -155,10 +160,15 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 				if msg != nil {
 					timeLast := time.Now()
 					// process db msg
-					msg.SaveToDB(helper)
+					err := msg.SaveToDB(helper)
+					if err != nil {
+						log.Error(err)
+					} else {
+						helper.NumDBMsgStored++
+					}
 
 					// messure the time in micro sec
-					delta := (time.Now().UnixNano() - timeLast.UnixNano()) / 1000
+					delta := uint64((time.Now().UnixNano() - timeLast.UnixNano()) / 1000)
 					if helper.AvgDBTimeMicroSec == 0 {
 						helper.AvgDBTimeMicroSec = delta
 					} else {

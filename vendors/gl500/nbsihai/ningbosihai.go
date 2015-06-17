@@ -19,14 +19,14 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// module exported globals
+// module exported global variables
 type NbSiHai struct {
 	TcpConfig TCPCfg
 	*dbh.DbHelper
 	Stat VendorStat
 }
 
-// module private globals
+// module private variables
 var _MessageConstants = &struct {
 	ClassReport, ClassAT, ClassACK, ClassBuff string
 	Commands                                  map[string]interface{}
@@ -45,6 +45,7 @@ var _MessageConstants = &struct {
 	byte(','),
 }
 
+// Allocate a new vendor proto. instance
 func New(env *EnviromentCfg) *NbSiHai {
 	log.SetLevel(env.LogLevel)
 	dbHelper, err := dbh.New(env)
@@ -123,8 +124,10 @@ func (s *NbSiHai) IsWholePacket(buff []byte, whole *bool) (bool, error) {
 			*whole = true
 		}
 	}
+
 	// TODO: is there a '\0' at the end?
-	return *whole && buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
+	//return *whole && buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
+	return buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
 }
 
 func (s *NbSiHai) GetCfg() *TCPCfg {
@@ -132,13 +135,19 @@ func (s *NbSiHai) GetCfg() *TCPCfg {
 }
 
 func (s *NbSiHai) GetStat() *VendorStat {
-	s.Stat.AvgDBTimeMicroSec = uint64(s.AvgDBTimeMicroSec)
+	s.Stat.AvgDBTimeMicroSec = s.AvgDBTimeMicroSec
 	s.Stat.DBWriteMsgCacheSize = uint64(len(s.DBMsgChan))
+	s.Stat.NumDBMsgStored = s.NumDBMsgStored
 	return &(s.Stat)
 }
+
 func (s *NbSiHai) Close() {
 	s.Close()
 	close(s.DBMsgChan)
+}
+
+func (s *NbSiHai) SetLogLevel(lvl log.Level) {
+	log.SetLevel(lvl)
 }
 
 // private functions
@@ -183,6 +192,29 @@ func (s *NbSiHai) parseMessage(parts []string, conn *net.Conn) interface{} {
 			_par := MessageResp{}
 			if _par.Parse(parts, conn) {
 				// convert WGS to GCJ-02
+				// false back
+				falseBack := false
+				if len(_par.Altitude) == 0 {
+					_par.Altitude = []byte("0")
+					falseBack = true
+				}
+				if len(_par.Longitude) == 0 {
+					_par.Longitude = []byte("0")
+					falseBack = true
+				}
+				if len(_par.Speed) == 0 {
+					_par.Speed = []byte("0")
+					falseBack = true
+				}
+				if len(_par.Azimuth) == 0 {
+					_par.Azimuth = []byte("0")
+					falseBack = true
+				}
+				if len(_par.Latitude) == 0 {
+					_par.Latitude = []byte("0")
+					falseBack = true
+				}
+
 				lat, err = strconv.ParseFloat(string(_par.Latitude), 64)
 				if err == nil {
 					lng, err = strconv.ParseFloat(string(_par.Longitude), 64)
@@ -192,9 +224,11 @@ func (s *NbSiHai) parseMessage(parts []string, conn *net.Conn) interface{} {
 						_par.Longitude = []byte(strconv.FormatFloat(lng, 'f', 6, 64))
 					}
 				}
-				if err != nil {
+				if falseBack || err != nil {
 					log.Error(err, ", Buff:", parts, ", From:", (*conn).RemoteAddr())
-				} else {
+				}
+
+				if err == nil {
 					// put the message onto the database pipe, assured!!
 					// the for-select-break style is my innovation? :)
 					for {

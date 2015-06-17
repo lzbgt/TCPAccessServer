@@ -9,6 +9,7 @@ package datatypes
 import (
 	"errors"
 	"net"
+	"runtime"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -45,6 +46,7 @@ type EnviromentCfg struct {
 type Vendor interface {
 	GetCfg() *TCPCfg
 	GetStat() *VendorStat
+	SetLogLevel(log.Level)
 	Close()
 	TcpWorker(packetsChan chan *RawTcpPacket)
 	IsWholePacket(buff []byte, whole *bool) (bool, error)
@@ -53,7 +55,7 @@ type Vendor interface {
 // stat
 type VendorStat struct {
 	AvgWorkerTimeMicroSec, DBWriteMsgCacheSize, DBWriteMsgDropped uint64
-	NumInvalidPackets, AvgDBTimeMicroSec                          uint64
+	NumInvalidPackets, AvgDBTimeMicroSec, NumDBMsgStored          uint64
 }
 
 // tcp configurations
@@ -77,4 +79,7 @@ type TCPStat struct {
 	NumInvalidPackets, AvgWorkerTimeMicroSec, AvgDBTimeMicroSec, NumDBWriteMsgCacheSize, NumDBWriteMsgDropped uint64
 
 	StartTime, LastTime, NowTime time.Time
+	//
+	//
+	MemStat runtime.MemStats
 }

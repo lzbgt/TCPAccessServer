@@ -16,6 +16,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// RESP message
 type MessageResp struct {
 	Command, //10
 	Version, //6
@@ -48,7 +49,7 @@ func (m *MessageResp) LogContent() {
 	val := reflect.ValueOf(m).Elem()
 	typ := reflect.TypeOf(m).Elem()
 	for i := 0; i < val.NumField(); i++ {
-		log.Debug(typ.Field(i).Name, string(val.Field(i).Bytes()))
+		log.Debug(typ.Field(i).Name, ": ", string(val.Field(i).Bytes()))
 	}
 }
 
@@ -121,4 +122,16 @@ func (s *MessageResp) SaveToDB(dbhelper *dbh.DbHelper) error {
 	}
 
 	return nil
+}
+
+//
+// ACK message
+type ACKMsgGTGBC struct {
+	Command, //10
+	Version, //6
+	UID, //15, XX0000-XX-FFFF
+	Name, //10, IMEI
+	SeqNum, //4, 0000-FFFF
+	SendTime, //14
+	CntNum []byte //4, 0000-FFFF
 }
