@@ -49,10 +49,10 @@ func GetTimestampFromString(tm []byte) time.Time {
 		t = time.Now()
 		log.Error(err)
 	}
-	/* // TODO: THIS SHOULD BE TAKEN CARED BY THE APPLICATIONS OF GPS DATA, NOT THE ACCESS SERVER ITSELF
+	 // TODO: THIS SHOULD BE TAKEN CARED BY THE APPLICATIONS OF GPS DATA, NOT THE ACCESS SERVER ITSELF
 	else if math.Abs(float64(t.Unix()-time.Now().Unix())) > SECS_15MINUTE {
 		t = time.Now()
-	}*/
+	}
 
 	return t
 }
