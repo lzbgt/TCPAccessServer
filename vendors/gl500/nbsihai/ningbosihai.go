@@ -8,6 +8,7 @@ package nbsihai
 
 import (
 	"bytes"
+	"fmt"
 	dbh "lbsas/database"
 	. "lbsas/datatypes"
 	gcj "lbsas/gcj02"
@@ -52,6 +53,8 @@ func New(env *EnviromentCfg) *NbSiHai {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Info(fmt.Sprintf("%v", *env))
 
 	return &NbSiHai{
 		TCPCfg{ // flags

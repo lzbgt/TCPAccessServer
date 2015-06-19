@@ -175,7 +175,8 @@ func (s *TCPServer) tcpStartSession(conn net.Conn) {
 	// teardown
 	// we are not interested in EOF
 	if err != nil && err.Error() != "EOF" {
-		log.Error(err)
+		// aliyun finance ECS always been connected ports shortly to check status
+		log.Info(err)
 	}
 	s.StatTcp.NumConnClosed++
 }
