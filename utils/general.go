@@ -8,6 +8,7 @@ package utils
 
 import (
 	"errors"
+	"math"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -48,9 +49,8 @@ func GetTimestampFromString(tm []byte) time.Time {
 	if err != nil {
 		t = time.Now()
 		log.Error(err)
-	}
-	 // TODO: THIS SHOULD BE TAKEN CARED BY THE APPLICATIONS OF GPS DATA, NOT THE ACCESS SERVER ITSELF
-	else if math.Abs(float64(t.Unix()-time.Now().Unix())) > SECS_15MINUTE {
+	} else if math.Abs(float64(t.Unix()-time.Now().Unix())) > SECS_15MINUTE {
+		// TODO: THIS SHOULD BE TAKEN CARED BY THE APPLICATIONS OF GPS DATA, NOT THE ACCESS SERVER ITSELF
 		t = time.Now()
 	}
 
