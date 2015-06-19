@@ -7,7 +7,6 @@
 package tcp
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -131,8 +130,6 @@ func (s *TCPServer) tcpStartSession(conn net.Conn) {
 			}
 		}
 
-		log.Debug(string(buff[:last+n]), "decoded:", hex.EncodeToString(buff[:last+n]))
-
 		// there is remain part unread
 		whole, err = s.v.IsWholePacket(buff[last:last+n], &whole)
 		if err != nil {
@@ -176,7 +173,7 @@ func (s *TCPServer) tcpStartSession(conn net.Conn) {
 	// we are not interested in EOF
 	if err != nil && err.Error() != "EOF" {
 		// aliyun finance ECS always been connected ports shortly to check status
-		log.Info(err)
+		log.Debug(err)
 	}
 	s.StatTcp.NumConnClosed++
 }

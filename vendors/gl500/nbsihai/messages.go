@@ -49,7 +49,7 @@ func (m *MessageResp) LogContent() {
 	val := reflect.ValueOf(m).Elem()
 	typ := reflect.TypeOf(m).Elem()
 	for i := 0; i < val.NumField(); i++ {
-		log.Debug(typ.Field(i).Name, ": ", string(val.Field(i).Bytes()))
+		log.Info(typ.Field(i).Name, ": ", string(val.Field(i).Bytes()))
 	}
 }
 
@@ -70,7 +70,7 @@ func (m *MessageResp) Parse(parts []string, conn *net.Conn) bool {
 	}
 
 	// remove me
-	if log.GetLevel() == log.DebugLevel {
+	if log.GetLevel() == log.InfoLevel {
 		m.LogContent()
 	}
 

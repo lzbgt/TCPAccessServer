@@ -87,7 +87,7 @@ func (s *NbSiHai) TcpWorker(packetsChan chan *RawTcpPacket) {
 		success := false
 		// handle channel close event
 		if packet == nil {
-			log.Info("nil packet, close connection")
+			log.Debug("nil packet, close connection")
 			break
 		} else {
 			// data packet
@@ -167,7 +167,7 @@ func (s *NbSiHai) handlePacket(packet *RawTcpPacket) bool {
 
 	buff := packet.Buff[1 : len(packet.Buff)-1]
 	if len(buff) == 0 {
-		log.Info("invalid packet, ignored")
+		log.Debug("invalid packet, ignored")
 		return false
 	}
 
