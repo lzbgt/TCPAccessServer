@@ -8,12 +8,12 @@ package utils
 
 import (
 	"errors"
-	"math"
 	"time"
-)
-import log "github.com/Sirupsen/logrus"
 
-const TWO_DAY_SECS = 2 * 24 * 60 * 60
+	log "github.com/Sirupsen/logrus"
+)
+
+const SECS_15MINUTE = 15 * 60
 
 // customed time format to time.Time RFC3339, e.g:
 // 20150612193050 -> 2015-06-12T19:30:40+00:00
@@ -48,9 +48,11 @@ func GetTimestampFromString(tm []byte) time.Time {
 	if err != nil {
 		t = time.Now()
 		log.Error(err)
-	} else if math.Abs(float64(t.Unix()-time.Now().Unix())) > TWO_DAY_SECS {
-		t = time.Now()
 	}
+	/* // TODO: THIS SHOULD BE TAKEN CARED BY THE APPLICATIONS OF GPS DATA, NOT THE ACCESS SERVER ITSELF
+	else if math.Abs(float64(t.Unix()-time.Now().Unix())) > SECS_15MINUTE {
+		t = time.Now()
+	}*/
 
 	return t
 }

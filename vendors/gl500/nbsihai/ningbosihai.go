@@ -126,7 +126,7 @@ func (s *NbSiHai) IsWholePacket(buff []byte, whole *bool) (bool, error) {
 	}
 
 	// TODO: is there a '\0' at the end?
-	//return *whole && buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
+	// return *whole && buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
 	return buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
 }
 

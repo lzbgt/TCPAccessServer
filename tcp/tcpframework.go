@@ -255,10 +255,10 @@ func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// timer triggered every 10s to report statistics
+// timer triggered every 120s to report statistics
 func (s *TCPServer) statusReport() {
 	s.Reportor.Info("Report starting")
-	timeChan := time.NewTicker(time.Second * 15).C
+	timeChan := time.NewTicker(time.Second * 120).C
 	for {
 		<-timeChan
 		runtime.ReadMemStats(&s.StatTcpLast.MemStat)

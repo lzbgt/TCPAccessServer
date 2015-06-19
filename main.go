@@ -27,9 +27,12 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.SetLevel(env.LogLevel)
 	log.SetFormatter(&log.TextFormatter{})
-	log.Info("Server Started")
-	tcp.New(nbsihai.New(env))
 
+	// start a new tcp server for NingBo SiHai Battery Powered GPS Devices
+	tcp.New(nbsihai.New(env))
+	log.Info("Server Started")
+
+	// accept SIGTERM signal for safely exiting
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
