@@ -1,0 +1,9 @@
+天地网工厂  16:36:55
+*HQ,8150708207,LBS,460,0,9771,4442,060180,DFFFFFFF#,BT3710#
+*XX,YYYYYYYYYY,LBS,MCC,MNC,LAC,CELL,unkown, vehicle_status#, power#
+这是基站的数据
+天地网工厂  16:37:11
+*HQ,8150708207,V1,083639,A,2235.5492,N,11358.6842,E,0.00,125,140715,DFFFFFFF#,BT3735#
+天地网工厂  16:37:30
+*XX,YYYYYYYYYY,V1,HHMMSS,S,latitude,D,longitude,G,speed,direction,date,vehicle_status#,power#
+这个是GPS定位的数据

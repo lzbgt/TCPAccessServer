@@ -1,10 +1,10 @@
 // Copyright 2015 ZheJiang QunShuo Inc. All rights reserved
 //
 // History:
-// 2015-06-06	Bruce.Lu<rikusouhou@gmail.com>  Initial version
+// 2015-07-14	Bruce.Lu<rikusouhou@gmail.com>  Initial version
 //
 
-package nbsihai
+package eworld
 
 import (
 	"bytes"
@@ -20,8 +20,14 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+const (
+	CMD_STATUS_APPLIED = "APPLIED"
+	CMD_STATUS_PENDING = "PENDING"
+	CMD_TYPE_REPINTV   = "REPINTV"
+)
+
 // module exported global variables
-type NbSiHai struct {
+type EWorld struct {
 	TcpConfig TCPCfg
 	*dbh.DbHelper
 	Stat VendorStat
@@ -29,25 +35,18 @@ type NbSiHai struct {
 
 // module private variables
 var _MessageConstants = &struct {
-	ClassReport, ClassAT, ClassACK, ClassBuff string
-	Commands                                  map[string]interface{}
-	Delimiter                                 byte
+	Commands  map[string]interface{}
+	Delimiter byte
 }{
-	"RESP:", "AT+", "ACK:", "BUFF:",
 	map[string]interface{}{
-		"RESP:GTCTN": MessageResp{},
-		"RESP:GTSTR": MessageResp{},
-		"RESP:GTRTL": MessageResp{},
-		"RESP:GTBL":  MessageResp{},
-		"BUFF:GTCTN": MessageResp{},
-		"BUFF:GTSTR": MessageResp{},
-		"BUFF:GTRTL": MessageResp{},
+		"V": GenRespMsg{},
+		"L": LbsRespMsg{},
 	},
 	byte(','),
 }
 
 // Allocate a new vendor proto. instance
-func New(env *EnviromentCfg) *NbSiHai {
+func New(env *EnviromentCfg) *EWorld {
 	log.SetLevel(env.LogLevel)
 	dbHelper, err := dbh.New(env)
 	if err != nil {
@@ -56,7 +55,7 @@ func New(env *EnviromentCfg) *NbSiHai {
 
 	log.Info(fmt.Sprintf("%v", *env))
 
-	return &NbSiHai{
+	return &EWorld{
 		TCPCfg{ // flags
 			Addr:           env.TCPAddr,
 			HttpAddr:       env.HTTPAddr,
@@ -65,8 +64,8 @@ func New(env *EnviromentCfg) *NbSiHai {
 			WorkerNum:      env.NumWorkersPerConn,
 			ReadTimeoutSec: time.Duration(env.TCPTimeOutSec),
 			PacketMaxLen:   180,
-			StartSymbol:    '+',
-			EndSymbol:      '$',
+			StartSymbol:    '*',
+			EndSymbol:      '#',
 			LogLevel:       env.LogLevel,
 			DBAddr:         env.DBAddr,
 		},
@@ -75,7 +74,7 @@ func New(env *EnviromentCfg) *NbSiHai {
 }
 
 // packet consumer
-func (s *NbSiHai) TcpWorker(packetsChan chan *RawTcpPacket) {
+func (s *EWorld) TcpWorker(packetsChan chan *RawTcpPacket) {
 	// all time related calculations can be safely ignored when review
 	isFirstTime := true
 	for {
@@ -111,34 +110,43 @@ func (s *NbSiHai) TcpWorker(packetsChan chan *RawTcpPacket) {
 }
 
 // helper function
-// try to match
-func (s *NbSiHai) IsWholePacket(buff []byte, status *int) (bool, error) {
-	return buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
+func (s *EWorld) IsWholePacket(buff []byte, status *int) (bool, error) {
+	for i := 0; i < len(buff); i++ {
+		switch buff[i] {
+		case s.TcpConfig.EndSymbol:
+			(*status)++
+		}
+	}
+
+	ret := (*status%2 == 0) && (buff[len(buff)-1] == s.TcpConfig.EndSymbol)
+	// log.Debug("status:", *status, "ret:", ret, buff[len(buff)-2], buff[len(buff)-1], s.TcpConfig.EndSymbol)
+	return ret, nil
+
 }
 
-func (s *NbSiHai) GetCfg() *TCPCfg {
+func (s *EWorld) GetCfg() *TCPCfg {
 	return &(s.TcpConfig)
 }
 
-func (s *NbSiHai) GetStat() *VendorStat {
+func (s *EWorld) GetStat() *VendorStat {
 	s.Stat.AvgDBTimeMicroSec = s.AvgDBTimeMicroSec
 	s.Stat.DBWriteMsgCacheSize = uint64(len(s.DBMsgChan))
 	s.Stat.NumDBMsgStored = s.NumDBMsgStored
 	return &(s.Stat)
 }
 
-func (s *NbSiHai) Close() {
+func (s *EWorld) Close() {
 	s.Close()
 	close(s.DBMsgChan)
 }
 
-func (s *NbSiHai) SetLogLevel(lvl log.Level) {
+func (s *EWorld) SetLogLevel(lvl log.Level) {
 	log.SetLevel(lvl)
 }
 
 // private functions
 // construct message from the packet
-func (s *NbSiHai) handlePacket(packet *RawTcpPacket) bool {
+func (s *EWorld) handlePacket(packet *RawTcpPacket) bool {
 	if packet.Buff[0] != s.TcpConfig.StartSymbol && packet.Buff[len(packet.Buff)-1] != s.TcpConfig.EndSymbol {
 		// invalid packet
 		s.Stat.NumInvalidPackets++
@@ -168,22 +176,100 @@ func (s *NbSiHai) handlePacket(packet *RawTcpPacket) bool {
 	return true
 }
 
+// reply messages
+func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
+	//
+	imei := "WORLD" + sn
+	id, err := s.GetIdByImei(imei)
+	if err != nil {
+		log.Error("device not existed: ", imei, err)
+		return false
+	}
+
+	sentCmd := false
+	cmdError := false
+	// *TH,2020916012,I1,050400,0,0,14,XRDDCS12001440#
+	cmd := s.GetCmd(id, CMD_TYPE_REPINTV)
+	//log.Debug("query for cmd: ", id, ":", CMD_TYPE_REPINTV)
+	if cmd != nil && cmd.Status == CMD_STATUS_PENDING {
+		log.Debug("got cmd: ", cmd)
+		_cmd := s.GetCmdFromDb(id, CMD_TYPE_REPINTV)
+		if _cmd != nil {
+			if cmd.Id != _cmd.Id {
+				s.CommitCmdToDb(cmd, "OVERWRITE")
+			}
+
+			cmd.Params = _cmd.Params
+			cmd.Id = _cmd.Id
+		} else {
+			s.DeleteCmd(id, CMD_TYPE_REPINTV)
+			goto HANDLED_CMD
+		}
+
+		params := strings.Split(cmd.Params, ",")
+		if len(params) == 2 && len(params[0]) == 4 && len(params[1]) > 0 {
+			h, err := strconv.ParseInt(params[0][0:2], 10, 16)
+			if err != nil || h < 0 || h > 24 {
+				cmdError = true
+				goto HANDLED_CMD
+			}
+			m, err := strconv.ParseInt(params[0][2:4], 10, 16)
+			if err != nil || m < 0 || m > 59 {
+				cmdError = true
+				goto HANDLED_CMD
+			}
+
+			interval, err := strconv.ParseInt(params[1], 10, 16)
+			if err != nil || interval < 0 || interval > 1440 {
+				cmdError = true
+				goto HANDLED_CMD
+			}
+			cfg := params[0] + params[1]
+			ackFormat := "*TH,%s,I2,%s,0,0,14,XRDDCS%s#"
+			tm := time.Now()
+			hhmmss := fmt.Sprintf("%02d%02d%02d", tm.Hour(), tm.Minute(), tm.Second())
+			(*conn).Write([]byte(fmt.Sprintf(ackFormat, imei[5:], hhmmss, cfg)))
+			sentCmd = true
+			cmd.Status = CMD_STATUS_APPLIED
+			log.Debug("cmd sent: ", cmd)
+			s.CommitCmdToDb(cmd, CMD_STATUS_APPLIED)
+			// s.DeleteCmd(id, CMD_TYPE_REPINTV)
+		}
+	}
+
+HANDLED_CMD:
+	if cmdError {
+		log.Error("invalid cmd:", cmd)
+		s.CommitCmdToDb(cmd, "INVALID")
+	}
+
+	if !sentCmd {
+		// reply the message
+		// *TH,2020916012,I1,050400,0,0,6,XRDDCP#
+		ackFormat := "*TH,%s,I1,%s,0,0,6,XRDDCP#"
+		tm := time.Now()
+		hhmmss := fmt.Sprintf("%02d%02d%02d", tm.Hour(), tm.Minute(), tm.Second())
+		(*conn).Write([]byte(fmt.Sprintf(ackFormat, imei[5:], hhmmss)))
+	}
+
+	return true
+}
+
 // parse one message in a packet
-func (s *NbSiHai) parseMessage(parts []string, conn *net.Conn) interface{} {
+func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 	var err error = nil
 	var lat, lng float64
-	if par := _MessageConstants.Commands[parts[0]]; par != nil {
+	if par := _MessageConstants.Commands[parts[2][0:1]]; par != nil {
+		//
+		s.handleCmds(parts[1], conn)
+
 		switch par.(type) {
-		case MessageResp:
-			_par := MessageResp{}
+		case GenRespMsg:
+			_par := GenRespMsg{}
 			if _par.Parse(parts, conn) {
 				// convert WGS to GCJ-02
 				// false back
 				falseBack := false
-				if len(_par.Altitude) == 0 {
-					_par.Altitude = []byte("0")
-					falseBack = true
-				}
 				if len(_par.Longitude) == 0 {
 					_par.Longitude = []byte("0")
 					falseBack = true

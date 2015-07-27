@@ -11,6 +11,7 @@ import (
 	. "lbsas/datatypes"
 	"lbsas/tcp"
 	"lbsas/utils"
+	"lbsas/vendors/eworld"
 	"lbsas/vendors/gl500/nbsihai"
 	"os"
 	"os/signal"
@@ -28,8 +29,15 @@ func main() {
 	log.SetLevel(env.LogLevel)
 	log.SetFormatter(&log.TextFormatter{})
 
-	// start a new tcp server for NingBo SiHai Battery Powered GPS Devices
-	tcp.New(nbsihai.New(env))
+	// start a new tcp server for Battery Powered GPS Devices
+	log.Info("Configurations:", env)
+	log.Info("Starting the server ...")
+	if env.DType == "gl500" {
+		tcp.New(nbsihai.New(env))
+	} else if env.DType == "eworld" {
+		tcp.New(eworld.New(env))
+	}
+
 	log.Info("Server Started")
 
 	// accept SIGTERM signal for safely exiting
@@ -44,17 +52,18 @@ func GetEnvCfg() *EnviromentCfg {
 	env := &EnviromentCfg{}
 
 	var lvl log.Level
-	flagLvl := flag.String("log", "info", "log level")
+	flagLvl := flag.String("log", "debug", "log level")
+	flagType := flag.String("dtype", "eworld", "device type")
 	flagMaxOpenConns := flag.Int("dbmoc", 400, "database max open connections")
 	flagMaxIdleConns := flag.Int("dbmic", 100, "database max idle connections")
 	flagTCPTimeOutSec := flag.Int("tcptimeout", 200, "tcp wait time out, seconds")
 	flagTCPAddr := flag.String("tcpaddr", "0.0.0.0:8082", "TCP addr of server, like 0.0.0.0:8082")
 	flagHTTPAddr := flag.String("httpaddr", "0.0.0.0:8083", "HTTP addr of server, like 0.0.0.0:8082")
-	flagQueSize := flag.Int("queue", 80, "queue size per tcp connection")
+	flagQueSize := flag.Int("queue", 800, "queue size per tcp connection")
 	flagWorkers := flag.Int("worker", 1, "num of workers per tcp connection")
 	flagDBAddr := flag.String("dbaddr", "root:tusung*123@tcp(192.168.1.3:3306)/cargts", "database address")
 	flagDBProf := flag.Bool("dbprof", false, "enable database profiling")
-	flagDBCacheSize := flag.Int64("dbcachesize", 8000000, "dbmessage cache size before saving to database")
+	flagDBCacheSize := flag.Int64("dbcachesize", 800000, "dbmessage cache size before saving to database")
 	flag.Parse()
 
 	lvl, _ = utils.String2LogLevel(*flagLvl)
@@ -69,6 +78,7 @@ func GetEnvCfg() *EnviromentCfg {
 	env.DBAddr = *flagDBAddr
 	env.DBProf = *flagDBProf
 	env.DBCacheSize = *flagDBCacheSize
+	env.DType = *flagType
 
 	return env
 }

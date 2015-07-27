@@ -20,13 +20,72 @@ type IDBMessage interface {
 	SaveToDB(*DbHelper) error
 }
 
+type TCMD struct {
+	Id     string
+	Type   string
+	Params string
+	Status string
+}
+
 type DbHelper struct {
 	*sql.DB
 	ImeiToId  map[string]string
 	IdToImei  map[string]string
+	CmdsList  map[string]*TCMD
 	DBMsgChan chan IDBMessage
 	// stat
 	AvgDBTimeMicroSec, NumDBMsgStored uint64
+}
+
+func (s *DbHelper) SetCmd(deviceId, cmdType string, cmd *TCMD) {
+	s.CmdsList[deviceId+":"+cmdType] = cmd
+}
+
+func (s *DbHelper) DeleteCmd(deviceId, cmdType string) {
+	delete(s.CmdsList, deviceId+":"+cmdType)
+	log.Debug("deleted cmd from ram, deviceId=", deviceId, ", cmdType=", cmdType)
+}
+
+func (s *DbHelper) DeleteCmdFromDb(cmd *TCMD) {
+	s.CommitCmdToDb(cmd, "DELETED")
+}
+
+func (s *DbHelper) GetCmd(deviceId, cmdType string) *TCMD {
+	ret, ok := s.CmdsList[deviceId+":"+cmdType]
+	if ok {
+		//
+	} else {
+		ret = nil
+	}
+	log.Debug("got cmd from RAM: ", ret)
+	return ret
+}
+
+func (s *DbHelper) GetCmdFromDb(deviceId, cmdType string) *TCMD {
+	var (
+		id_, deviceId_, cmdType_, params_ string
+	)
+	status_ := "PENDING"
+
+	err := s.QueryRow(`select id,deviceId,type,params from commands 
+	where status='PENDING' and deviceId=? and type=?`, deviceId, cmdType).Scan(&id_, &deviceId_, &cmdType_, &params_)
+
+	if err != nil {
+		log.Error("failed query cmd for device: ", deviceId, ", type: ", cmdType, " error:", err)
+		return nil
+	}
+	cmd := &TCMD{id_, cmdType_, params_, status_}
+	log.Debug("Got cmd from db: ", cmd)
+
+	return cmd
+}
+
+func (s *DbHelper) CommitCmdToDb(cmd *TCMD, status string) {
+	_, err := s.Query("update commands set status=? where id=?", status, cmd.Id)
+	log.Debug("committed cmd to: ", cmd, "; status: ", status)
+	if err != nil {
+		log.Error("failed to commit cmd:", cmd, "error: ", err)
+	}
 }
 
 func (s *DbHelper) GetImeiById(id string) (string, error) {
@@ -103,7 +162,7 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 	}
 
 	helper := &DbHelper{db_, make(map[string]string), make(map[string]string),
-		make(chan IDBMessage, env.DBCacheSize), 0, 0}
+		make(map[string]*TCMD), make(chan IDBMessage, env.DBCacheSize), 0, 0}
 
 	if err != nil {
 		return nil, err
@@ -123,7 +182,6 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 	})
 
 	/*
-
 		//populate device id maps
 		sqlStr := "select id, deviceImei from device"
 		rows, err := helper.Query(sqlStr)
@@ -150,6 +208,72 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 			log.Error(err, ", SQL:", sqlStr)
 		}
 	*/
+
+	var refreshCmdsList = func() {
+		errSqlStr := "select from commands error:"
+		rows, err := helper.Query("select id,deviceId,type,params from commands where status='PENDING'")
+		if err != nil {
+			log.Error(errSqlStr, err)
+			return
+		}
+
+		defer rows.Close()
+		var (
+			id, deviceId, cmdType, params, status string
+		)
+
+		status = "PENDING"
+
+		for rows.Next() {
+			err := rows.Scan(&id, &deviceId, &cmdType, &params)
+			if err != nil {
+				log.Error(err)
+				break
+			}
+			//imei, ok := helper.IdToImei[id]
+			//if ok {
+			//add to map
+			_cmd, ok := helper.CmdsList[deviceId+":"+cmdType]
+			//log.Debug("RAM cmd: ", _cmd)
+			if ok {
+				// modify the status of the old record in DB
+				if _cmd.Status != status && _cmd.Id == id {
+					//helper.CommitCmdToDb(_cmd, "APPLIED")
+				} else if _cmd.Id != id {
+					helper.CommitCmdToDb(_cmd, "OVERWRITE")
+				}
+
+				// update RAM
+				_cmd.Id = id
+				_cmd.Params = params
+				_cmd.Status = status
+
+			} else {
+				helper.CmdsList[deviceId+":"+cmdType] = &TCMD{id, cmdType, params, status}
+			}
+			//}
+		}
+		err = rows.Err()
+		if err != nil {
+			log.Error(errSqlStr, err)
+		}
+
+		if log.GetLevel() == log.DebugLevel {
+			for k, v := range helper.CmdsList {
+				log.Debug("cmds in RAM: ", k, v)
+			}
+		}
+	}
+
+	// periodically update commands list
+	go func() {
+		timeChan := time.NewTicker(time.Second * 60 / 2).C
+		for {
+			<-timeChan
+			//
+			refreshCmdsList()
+		}
+	}()
 
 	// setup dbworker pool
 	for i := 0; i < env.DBMaxOpenConns; i++ {

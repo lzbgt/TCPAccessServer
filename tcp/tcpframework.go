@@ -101,15 +101,15 @@ func (s *TCPServer) tcpStartSession(conn net.Conn) {
 	go s.v.TcpWorker(packetsChan)
 
 	var (
-		last, n int
-		whole   bool
-		err     error
-		buff    []byte
+		last, n, status int
+		whole           bool
+		err             error
+		buff            []byte
 	)
 
-	last, n, err, buff, whole =
+	last, n, err, buff, whole, status =
 		0, 0, nil,
-		make([]byte, s.v.GetCfg().PacketMaxLen), true
+		make([]byte, s.v.GetCfg().PacketMaxLen), false, int(0)
 
 	// block readings on the tcp socket
 	for {
@@ -122,16 +122,23 @@ func (s *TCPServer) tcpStartSession(conn net.Conn) {
 		}
 
 		// TODO: [remove me] for test with netcat/telnet
-		if buff[last+n-1] == 0x0a {
-			buff[last+n-1] = 0
-			n--
-			if n == 0 {
-				continue
+		// log.Debug("last char:", buff[last+n-1])
+		for i := 0; i < 2; i++ {
+			if last+n > 0 {
+				if buff[last+n-1] == 0x0a || buff[last+n-1] == 0x0d {
+					buff[last+n-1] = 0
+					n--
+				}
 			}
 		}
 
+		if n == 0 {
+			log.Debug("empty packet, continue")
+			continue
+		}
+
 		// there is remain part unread
-		whole, err = s.v.IsWholePacket(buff[last:last+n], &whole)
+		whole, err = s.v.IsWholePacket(buff[last:last+n], &status)
 		if err != nil {
 			s.StatTcp.NumInvalidPkts++
 			// Invalid packet

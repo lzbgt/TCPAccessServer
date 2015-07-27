@@ -40,6 +40,7 @@ type EnviromentCfg struct {
 	TCPAddr, HTTPAddr, DBAddr string
 	DBProf                    bool
 	DBCacheSize               int64
+	DType                     string
 }
 
 // vendor
@@ -49,7 +50,7 @@ type Vendor interface {
 	SetLogLevel(log.Level)
 	Close()
 	TcpWorker(packetsChan chan *RawTcpPacket)
-	IsWholePacket(buff []byte, whole *bool) (bool, error)
+	IsWholePacket(buff []byte, status *int) (bool, error)
 }
 
 // stat
