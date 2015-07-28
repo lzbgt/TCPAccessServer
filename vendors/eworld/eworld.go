@@ -264,13 +264,13 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 	}
 
 	if par := _MessageConstants.Commands[parts[2][0:1]]; par != nil {
-		//
-		s.handleCmds(parts[1], conn)
+		var dbmsg dbh.IDBMessage
 
 		switch par.(type) {
 		case GenRespMsg:
 			_par := GenRespMsg{}
 			if _par.Parse(parts, conn) {
+				s.handleCmds(parts[1], conn)
 				// convert WGS to GCJ-02
 				// false back
 				falseBack := false
@@ -304,24 +304,33 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 					log.Error(err, ", Buff:", parts, ", From:", (*conn).RemoteAddr())
 				}
 
-				if err == nil {
-					// put the message onto the database pipe, assured!!
-					// the for-select-break style is my innovation? :)
-					for {
-						select {
-						case s.DBMsgChan <- &_par:
-							goto BREAK_
-						default:
-							// database pipe overflow, pop the oldest one and insert the new one
-							<-s.DBMsgChan
-							s.Stat.DBWriteMsgDropped++
-						}
-					}
-				BREAK_:
-				}
 			}
+			dbmsg = &_par
+		case LbsRespMsg:
+			_par := LbsRespMsg{}
+			if _par.Parse(parts, conn) {
+				s.handleCmds(parts[1], conn)
+			}
+			dbmsg = &_par
+
 		default:
 			log.Error("unkown message", parts, "From", (*conn).RemoteAddr().String())
+		}
+
+		if err == nil {
+			// put the message onto the database pipe, assured!!
+			// the for-select-break style is my innovation? :)
+			for {
+				select {
+				case s.DBMsgChan <- dbmsg:
+					goto BREAK_
+				default:
+					// database pipe overflow, pop the oldest one and insert the new one
+					<-s.DBMsgChan
+					s.Stat.DBWriteMsgDropped++
+				}
+			}
+		BREAK_:
 		}
 	} else {
 		log.Error("unkown cmd", parts, "From", (*conn).RemoteAddr().String())

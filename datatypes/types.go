@@ -36,11 +36,11 @@ type RawTcpPacket struct {
 type EnviromentCfg struct {
 	DBMaxOpenConns, DBMaxIdleConns,
 	QueueSizePerConn, NumWorkersPerConn, TCPTimeOutSec int
-	LogLevel                  log.Level
-	TCPAddr, HTTPAddr, DBAddr string
-	DBProf                    bool
-	DBCacheSize               int64
-	DType                     string
+	LogLevel                          log.Level
+	TCPAddr, HTTPAddr, DBAddr, LbsUrl string
+	DBProf                            bool
+	DBCacheSize                       int64
+	DType                             string
 }
 
 // vendor
@@ -83,4 +83,9 @@ type TCPStat struct {
 	//
 	//
 	MemStat runtime.MemStats
+}
+
+type WSGLocation struct {
+	Lat string `json:"lat"`
+	Lon string `json:"lon"`
 }
