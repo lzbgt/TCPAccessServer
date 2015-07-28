@@ -259,6 +259,10 @@ HANDLED_CMD:
 func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 	var err error = nil
 	var lat, lng float64
+	if len(parts) < 3 || len(parts[2]) < 1 || len(parts[1] < 1) {
+		return
+	}
+
 	if par := _MessageConstants.Commands[parts[2][0:1]]; par != nil {
 		//
 		s.handleCmds(parts[1], conn)
