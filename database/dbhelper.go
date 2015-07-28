@@ -258,11 +258,11 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 			log.Error(errSqlStr, err)
 		}
 
-		if log.GetLevel() == log.DebugLevel {
-			for k, v := range helper.CmdsList {
-				log.Debug("cmds in RAM: ", k, v)
-			}
-		}
+		//		if log.GetLevel() == log.DebugLevel {
+		//			for k, v := range helper.CmdsList {
+		//				log.Debug("cmds in RAM: ", k, v)
+		//			}
+		//		}
 	}
 
 	// periodically update commands list
