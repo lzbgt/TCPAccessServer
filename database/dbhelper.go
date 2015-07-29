@@ -74,6 +74,10 @@ func (s *DbHelper) GetCellLocation(args ...string) (lat, lon string) {
 // get baidu position
 func (s *DbHelper) GetCellLocationBD(args ...string) (lat, lon string) {
 	lat, lon = s.GetCellLocation(args...)
+	if lat == "0" && lon == "0" {
+		return
+	}
+
 	latDouble, err := strconv.ParseFloat(lat, 64)
 	if err == nil {
 		lonDouble, err := strconv.ParseFloat(lon, 64)
