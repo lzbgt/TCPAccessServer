@@ -11,8 +11,10 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	. "lbsas/datatypes"
+	"lbsas/gcj02"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -46,6 +48,7 @@ var LbsUrl string = ""
 
 // args: mcc, mnc, lac, cellid
 func (s *DbHelper) GetCellLocation(args ...string) (lat, lon string) {
+	lat, lon = "0", "0"
 	if len(args) < 4 {
 		return
 	}
@@ -65,6 +68,21 @@ func (s *DbHelper) GetCellLocation(args ...string) (lat, lon string) {
 		}
 	}
 
+	return
+}
+
+// get baidu position
+func (s *DbHelper) GetCellLocationBD(args ...string) (lat, lon string) {
+	lat, lon = s.GetCellLocation(args...)
+	latDouble, err := strconv.ParseFloat(lat, 64)
+	if err == nil {
+		lonDouble, err := strconv.ParseFloat(lon, 64)
+		if err == nil {
+			latDouble, lonDouble = gcj02.WGStoBD(latDouble, lonDouble)
+			lat = strconv.FormatFloat(latDouble, 'f', 6, 64)
+			lon = strconv.FormatFloat(lonDouble, 'f', 6, 64)
+		}
+	}
 	return
 }
 
