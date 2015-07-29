@@ -54,16 +54,17 @@ func (s *DbHelper) GetCellLocation(args ...string) (lat, lon string) {
 			"lac": {args[2]}, "cell": {args[3]}})
 	if resp != nil && err == nil {
 		defer resp.Body.Close()
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err == nil {
-		var loc WSGLocation
-		err := json.Unmarshal(body, &loc)
+		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
-			lat = loc.Lat
-			lon = loc.Lon
+			var loc WSGLocation
+			err := json.Unmarshal(body, &loc)
+			if err == nil {
+				lat = loc.Lat
+				lon = loc.Lon
+			}
 		}
 	}
+
 	return
 }
 
