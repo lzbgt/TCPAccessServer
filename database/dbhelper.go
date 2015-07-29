@@ -52,7 +52,9 @@ func (s *DbHelper) GetCellLocation(args ...string) (lat, lon string) {
 	resp, err := http.PostForm(LbsUrl,
 		url.Values{"mcc": {args[0]}, "mnc": {args[1]},
 			"lac": {args[2]}, "cell": {args[3]}})
-	defer resp.Body.Close()
+	if resp != nil && err == nil {
+		defer resp.Body.Close()
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err == nil {
 		var loc WSGLocation
