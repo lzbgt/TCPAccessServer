@@ -57,7 +57,7 @@ func GetEnvCfg() *EnviromentCfg {
 	flagType := flag.String("dtype", "eworld", "device type")
 	flagMaxOpenConns := flag.Int("dbmoc", 400, "database max open connections")
 	flagMaxIdleConns := flag.Int("dbmic", 100, "database max idle connections")
-	flagTCPTimeOutSec := flag.Int("tcptimeout", 200, "tcp wait time out, seconds")
+	flagTCPTimeOutSec := flag.Int("tcptimeout", 90, "tcp wait time out, seconds")
 	flagTCPAddr := flag.String("tcpaddr", "0.0.0.0:8082", "TCP addr of server, like 0.0.0.0:8082")
 	flagHTTPAddr := flag.String("httpaddr", "0.0.0.0:8083", "HTTP addr of server, like 0.0.0.0:8082")
 	flagQueSize := flag.Int("queue", 800, "queue size per tcp connection")
