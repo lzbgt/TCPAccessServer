@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -75,6 +76,7 @@ func (s *DbHelper) GetCellLocation(args ...string) (lat, lon string) {
 func (s *DbHelper) GetCellLocationBD(args ...string) (lat, lon string) {
 	lat, lon = s.GetCellLocation(args...)
 	if lat == "0" && lon == "0" {
+		log.Error("can't find LOC for LBS:", strings.Join(args, ","))
 		return
 	}
 
