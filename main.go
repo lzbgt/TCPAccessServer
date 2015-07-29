@@ -53,7 +53,7 @@ func GetEnvCfg() *EnviromentCfg {
 
 	var lvl log.Level
 	flagLvl := flag.String("log", "debug", "log level")
-	flagLbsUrl := flag.String("lbs", "http://127.0.0.1:8081/api/lbs", "lbs api url")
+	flagLbsUrl := flag.String("lbs", "http://127.0.0.1:8010/api/lbs", "lbs api url")
 	flagType := flag.String("dtype", "eworld", "device type")
 	flagMaxOpenConns := flag.Int("dbmoc", 400, "database max open connections")
 	flagMaxIdleConns := flag.Int("dbmic", 100, "database max idle connections")
