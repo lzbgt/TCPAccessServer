@@ -178,6 +178,7 @@ func (s *LbsRespMsg) SaveToDB(dbhelper *dbh.DbHelper) error {
 
 	lat, lon := dbhelper.GetCellLocation(string(s.MCC), string(s.MNC), string(s.LAC), string(s.CELL))
 	// get the time
+	log.Debug("LBS lat:", lat, ",lon:", lon)
 	tm := time.Now().UnixNano() / 1000000
 	sqlStr := `INSERT INTO eventdata(deviceId, timestamp, 
 	     latitude, longitude, speed, heading) VALUES(?,?,?,?,?,?)`

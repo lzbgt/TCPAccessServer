@@ -41,7 +41,7 @@ type DbHelper struct {
 	AvgDBTimeMicroSec, NumDBMsgStored uint64
 }
 
-// inited in New()
+// initialized in New()
 var LbsUrl string = ""
 
 // args: mcc, mnc, lac, cellid
