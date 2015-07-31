@@ -89,6 +89,9 @@ func (s *DbHelper) GetCellLocationBD(args ...string) (lat, lon string) {
 			lon = strconv.FormatFloat(lonDouble, 'f', 6, 64)
 		}
 	}
+	if err != nil {
+		log.Error("eorr GetCellLocationBD: ", err)
+	}
 	return
 }
 
