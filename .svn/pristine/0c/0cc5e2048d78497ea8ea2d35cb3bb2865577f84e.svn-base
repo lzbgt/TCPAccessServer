@@ -1,7 +1,0 @@
-[COMMON]
-#服务器IP和端口
-server=192.168.1.8:8082
-#设备开始IMEI
-start_imei=868120102053356
-#模拟设备数量
-device_number=500
