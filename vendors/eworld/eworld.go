@@ -11,7 +11,7 @@ import (
 	"fmt"
 	dbh "lbsas/database"
 	. "lbsas/datatypes"
-	gcj "lbsas/gcj02"
+	"lbsas/gcj02"
 	"net"
 	"strconv"
 	"strings"
@@ -273,38 +273,50 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 			if _par.Parse(parts, conn) {
 				s.handleCmds(parts[1], conn)
 				// convert WGS to GCJ-02
-				// false back
-				falseBack := false
-				if len(_par.Longitude) == 0 {
-					_par.Longitude = []byte("0")
-					falseBack = true
+				if len(_par.Latitude) == 0 {
+					_par.Latitude = []byte("0")
 				}
+
+				var (
+					f1, f2 float64
+				)
+
+				// DDFF.FFFF
+				if len(_par.Latitude) == 9 {
+					f1, err = strconv.ParseFloat(string(_par.Latitude[0:2]), 64)
+					if err == nil {
+						f2, err = strconv.ParseFloat(string(_par.Latitude[2:]), 64)
+					}
+				}
+				if err != nil {
+					log.Error("error in convert Latitude: ", _par)
+					return nil
+				}
+				lat = f1 + f2/60
+
+				// DDDFF.FFFF
+				if len(_par.Longitude) == 10 {
+					f1, err = strconv.ParseFloat(string(_par.Latitude[0:3]), 64)
+					if err == nil {
+						f2, err = strconv.ParseFloat(string(_par.Latitude[3:]), 64)
+					}
+				}
+				if err != nil {
+					log.Error("error in convert Longtitude: ", _par)
+					return nil
+				}
+				lng = f1 + f2/60
+
+				lat, lng = gcj02.WGStoBD(lat, lng)
+				_par.Latitude = []byte(strconv.FormatFloat(lat, 'f', 6, 64))
+				_par.Longitude = []byte(strconv.FormatFloat(lng, 'f', 6, 64))
+
 				if len(_par.Speed) == 0 {
 					_par.Speed = []byte("0")
-					falseBack = true
 				}
 				if len(_par.Azimuth) == 0 {
 					_par.Azimuth = []byte("0")
-					falseBack = true
 				}
-				if len(_par.Latitude) == 0 {
-					_par.Latitude = []byte("0")
-					falseBack = true
-				}
-
-				lat, err = strconv.ParseFloat(string(_par.Latitude), 64)
-				if err == nil {
-					lng, err = strconv.ParseFloat(string(_par.Longitude), 64)
-					if err == nil {
-						lat, lng = gcj.WGStoBD(lat, lng)
-						_par.Latitude = []byte(strconv.FormatFloat(lat, 'f', 6, 64))
-						_par.Longitude = []byte(strconv.FormatFloat(lng, 'f', 6, 64))
-					}
-				}
-				if falseBack || err != nil {
-					log.Error(err, ", Buff:", parts, ", From:", (*conn).RemoteAddr())
-				}
-
 			}
 			dbmsg = &_par
 		case LbsRespMsg:
