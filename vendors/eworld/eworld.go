@@ -226,10 +226,13 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 				goto HANDLED_CMD
 			}
 			cfg := params[0] + fmt.Sprintf("%04d", interval)
-			ackFormat := "*TH,%s,I2,%s,0,0,14,XRDDCS%s#"
+			// ackFormat := "*TH,%s,I2,%s,0,0,14,XRDDCS%s#"  050400
+			ackFormat := "*TH,%s,I2,050400,0,0,14,XRDDCS%s#"
 			tm := time.Now()
 			hhmmss := fmt.Sprintf("%02d%02d%02d", tm.Hour(), tm.Minute(), tm.Second())
-			(*conn).Write([]byte(fmt.Sprintf(ackFormat, imei[5:], hhmmss, cfg)))
+			theCmd := []byte(fmt.Sprintf(ackFormat, imei[5:], cfg))
+			log.Info("applied cmd: ", theCmd)
+			(*conn).Write(theCmd)
 			sentCmd = true
 			cmd.Status = CMD_STATUS_APPLIED
 			log.Debug("cmd sent: ", cmd)
