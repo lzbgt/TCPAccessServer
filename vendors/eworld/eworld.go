@@ -229,7 +229,7 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 			// ackFormat := "*TH,%s,I2,%s,0,0,14,XRDDCS%s#"  050400
 			ackFormat := "*TH,%s,I2,050400,0,0,14,XRDDCS%s#"
 			tm := time.Now()
-			hhmmss := fmt.Sprintf("%02d%02d%02d", tm.Hour(), tm.Minute(), tm.Second())
+			// hhmmss := fmt.Sprintf("%02d%02d%02d", tm.Hour(), tm.Minute(), tm.Second())
 			theCmd := []byte(fmt.Sprintf(ackFormat, imei[5:], cfg))
 			log.Info("applied cmd: ", theCmd)
 			(*conn).Write(theCmd)
