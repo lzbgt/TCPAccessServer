@@ -296,9 +296,9 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 
 				// DDDFF.FFFF
 				if len(_par.Longitude) == 10 {
-					f1, err = strconv.ParseFloat(string(_par.Latitude[0:3]), 64)
+					f1, err = strconv.ParseFloat(string(_par.Longitude[0:3]), 64)
 					if err == nil {
-						f2, err = strconv.ParseFloat(string(_par.Latitude[3:]), 64)
+						f2, err = strconv.ParseFloat(string(_par.Longitude[3:]), 64)
 					}
 				}
 				if err != nil {
