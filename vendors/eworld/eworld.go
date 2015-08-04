@@ -225,7 +225,7 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 				cmdError = true
 				goto HANDLED_CMD
 			}
-			cfg := params[0] + params[1]
+			cfg := params[0] + fmt.Sprintf("%04d", interval)
 			ackFormat := "*TH,%s,I2,%s,0,0,14,XRDDCS%s#"
 			tm := time.Now()
 			hhmmss := fmt.Sprintf("%02d%02d%02d", tm.Hour(), tm.Minute(), tm.Second())
@@ -298,7 +298,7 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 				if len(_par.Longitude) == 10 {
 					f1, err = strconv.ParseFloat(string(_par.Longitude[0:3]), 64)
 					if err == nil {
-						f2, err = strconv.ParseFloat(string(_par.Longitude[3:]), 64)
+						f2, err = strconv.ParseFloat(string(_par.Latitude[3:]), 64)
 					}
 				}
 				if err != nil {
