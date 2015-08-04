@@ -276,6 +276,15 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 				if len(_par.Latitude) == 0 {
 					_par.Latitude = []byte("0")
 				}
+				if len(_par.Longitude) == 0 {
+					_par.Longitude = []byte("0")
+				}
+				if len(_par.Speed) == 0 {
+					_par.Speed = []byte("0")
+				}
+				if len(_par.Azimuth) == 0 {
+					_par.Azimuth = []byte("0")
+				}
 
 				var (
 					f1, f2 float64
@@ -287,12 +296,16 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 					if err == nil {
 						f2, err = strconv.ParseFloat(string(_par.Latitude[2:]), 64)
 					}
+
+					if err != nil {
+						log.Error("error in convert Latitude: ", _par)
+						return nil
+					}
+					lat = f1 + f2/60
+				} else {
+					log.Error("invalid latitude, use 0 instead: ", _par)
+					lat = 0
 				}
-				if err != nil {
-					log.Error("error in convert Latitude: ", _par)
-					return nil
-				}
-				lat = f1 + f2/60
 
 				// DDDFF.FFFF
 				if len(_par.Longitude) == 10 {
@@ -300,23 +313,20 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 					if err == nil {
 						f2, err = strconv.ParseFloat(string(_par.Longitude[3:]), 64)
 					}
+					if err != nil {
+						log.Error("error in convert Longtitude: ", _par)
+						return nil
+					}
+					lng = f1 + f2/60
+				} else {
+					log.Error("invalid longitude, use 0 instead: ", _par)
+					lng = 0
 				}
-				if err != nil {
-					log.Error("error in convert Longtitude: ", _par)
-					return nil
-				}
-				lng = f1 + f2/60
 
 				lat, lng = gcj02.WGStoBD(lat, lng)
 				_par.Latitude = []byte(strconv.FormatFloat(lat, 'f', 6, 64))
 				_par.Longitude = []byte(strconv.FormatFloat(lng, 'f', 6, 64))
 
-				if len(_par.Speed) == 0 {
-					_par.Speed = []byte("0")
-				}
-				if len(_par.Azimuth) == 0 {
-					_par.Azimuth = []byte("0")
-				}
 			}
 			dbmsg = &_par
 		case LbsRespMsg:
