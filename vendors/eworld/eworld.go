@@ -306,7 +306,6 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 					log.Error("invalid latitude, use 0 instead: ", _par)
 					lat = 0
 				}
-
 				// DDDFF.FFFF
 				if len(_par.Longitude) == 10 {
 					f1, err = strconv.ParseFloat(string(_par.Longitude[0:3]), 64)
@@ -322,11 +321,9 @@ func (s *EWorld) parseMessage(parts []string, conn *net.Conn) interface{} {
 					log.Error("invalid longitude, use 0 instead: ", _par)
 					lng = 0
 				}
-
 				lat, lng = gcj02.WGStoBD(lat, lng)
 				_par.Latitude = []byte(strconv.FormatFloat(lat, 'f', 6, 64))
 				_par.Longitude = []byte(strconv.FormatFloat(lng, 'f', 6, 64))
-
 			}
 			dbmsg = &_par
 		case LbsRespMsg:
