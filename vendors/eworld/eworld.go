@@ -214,6 +214,8 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 				cmdError = true
 				goto HANDLED_CMD
 			}
+			// UTC to UTC+8
+			h = (h + 8) % 24
 			m, err := strconv.ParseInt(params[0][2:4], 10, 16)
 			if err != nil || m < 0 || m > 59 {
 				cmdError = true
@@ -225,7 +227,7 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 				cmdError = true
 				goto HANDLED_CMD
 			}
-			cfg := params[0] + fmt.Sprintf("%04d", interval)
+			cfg := fmt.Sprintf("%02d%02d", h, m) + fmt.Sprintf("%04d", interval)
 			ackFormat := "*TH,%s,I2,050400,0,0,14,XRDDCS%s#"
 			theCmd := []byte(fmt.Sprintf(ackFormat, imei[5:], cfg))
 			log.Info("applied cmd: ", theCmd)
