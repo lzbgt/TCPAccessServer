@@ -231,15 +231,6 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 	helper.SetMaxIdleConns(env.DBMaxIdleConns)
 	helper.SetMaxOpenConns(env.DBMaxOpenConns)
 
-	// set profiling
-	helper.Query("SET profiling = ?", func() int {
-		if env.DBProf {
-			return 1
-		} else {
-			return 0
-		}
-	})
-
 	var refreshCmdsList = func() {
 		errSqlStr := "select from commands error:"
 		rows, err := helper.Query(`select a.id,a.deviceId,b.type,a.params from commands as a  

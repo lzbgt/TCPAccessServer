@@ -193,6 +193,10 @@ func (s *LbsRespMsg) SaveToDB(dbhelper *dbh.DbHelper) error {
 		return err
 	}
 
+	if lat == 0 && lon == 0 {
+		return nil
+	}
+
 	stmt2, err := dbhelper.Prepare(`UPDATE devicelatestdata SET lastAckTime=?, 
 	    latitude=?, longitude=?, speed=?, heading=?, gpsTimestamp=?, updateTime=? where deviceId=?`)
 	if err != nil {

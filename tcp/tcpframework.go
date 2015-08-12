@@ -25,7 +25,7 @@ import (
 // globals
 type TCPServer struct {
 	v                    Vendor
-	StatTcp, StatTcpLast TCPStat
+	StatTcp, StatTcpLast NetStatus
 	Reportor             *log.Logger
 }
 
@@ -41,7 +41,7 @@ func New(v Vendor) *TCPServer {
 	log.SetFormatter(&log.TextFormatter{})
 	reportor.Level = log.DebugLevel
 
-	ret := &TCPServer{v, TCPStat{}, TCPStat{}, reportor}
+	ret := &TCPServer{v, NetStatus{}, NetStatus{}, reportor}
 	go ret.statusReport()
 
 	// log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime)

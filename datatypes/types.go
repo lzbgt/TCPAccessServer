@@ -35,17 +35,17 @@ type RawTcpPacket struct {
 // command line args
 type EnviromentCfg struct {
 	DBMaxOpenConns, DBMaxIdleConns,
-	QueueSizePerConn, NumWorkersPerConn, TCPTimeOutSec int
+	QueueSizePerConn, NumWorkersPerConn, TCPTimeOutSec, NumUDPWokers int
 	LogLevel                          log.Level
 	TCPAddr, HTTPAddr, DBAddr, LbsUrl string
-	DBProf                            bool
-	DBCacheSize                       int64
-	DType                             string
+	DBCacheSize, MsgCacheSize         int64
+
+	DType string
 }
 
 // vendor
 type Vendor interface {
-	GetCfg() *TCPCfg
+	GetCfg() *NetConfig
 	GetStat() *VendorStat
 	SetLogLevel(log.Level)
 	Close()
@@ -60,7 +60,7 @@ type VendorStat struct {
 }
 
 // tcp configurations
-type TCPCfg struct {
+type NetConfig struct {
 	// config
 	Addr, Protocol, HttpAddr, DBAddr  string
 	StartSymbol, EndSymbol            byte
@@ -70,7 +70,7 @@ type TCPCfg struct {
 }
 
 // framework statistics
-type TCPStat struct {
+type NetStatus struct {
 	NumConnActive, NumConnCreated, NumConnClosed, NumPktsReceived, NumErrorRcv, NumDBMsgStored,
 	NumPktsDroped, NumInvalidPkts uint64
 	NumConnCreatedPS, NumConnClosedPS, NumPktsReceivedPS, NumErrorRcvPS, NumDBMsgStoredPS,

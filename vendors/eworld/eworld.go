@@ -29,7 +29,7 @@ const (
 
 // module exported global variables
 type EWorld struct {
-	TcpConfig TCPCfg
+	TcpConfig NetConfig
 	*dbh.DbHelper
 	Stat VendorStat
 }
@@ -57,7 +57,7 @@ func New(env *EnviromentCfg) *EWorld {
 	log.Info(fmt.Sprintf("%v", *env))
 
 	return &EWorld{
-		TCPCfg{ // flags
+		NetConfig{ // flags
 			Addr:           env.TCPAddr,
 			HttpAddr:       env.HTTPAddr,
 			Protocol:       "tcp",
@@ -125,7 +125,7 @@ func (s *EWorld) IsWholePacket(buff []byte, status *int) (bool, error) {
 
 }
 
-func (s *EWorld) GetCfg() *TCPCfg {
+func (s *EWorld) GetCfg() *NetConfig {
 	return &(s.TcpConfig)
 }
 

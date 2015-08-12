@@ -22,7 +22,7 @@ import (
 
 // module exported global variables
 type NbSiHai struct {
-	TcpConfig TCPCfg
+	TcpConfig NetConfig
 	*dbh.DbHelper
 	Stat VendorStat
 }
@@ -57,7 +57,7 @@ func New(env *EnviromentCfg) *NbSiHai {
 	log.Info(fmt.Sprintf("%v", *env))
 
 	return &NbSiHai{
-		TCPCfg{ // flags
+		NetConfig{ // flags
 			Addr:           env.TCPAddr,
 			HttpAddr:       env.HTTPAddr,
 			Protocol:       "tcp",
@@ -116,7 +116,7 @@ func (s *NbSiHai) IsWholePacket(buff []byte, status *int) (bool, error) {
 	return buff[len(buff)-1] == s.TcpConfig.EndSymbol, nil
 }
 
-func (s *NbSiHai) GetCfg() *TCPCfg {
+func (s *NbSiHai) GetCfg() *NetConfig {
 	return &(s.TcpConfig)
 }
 

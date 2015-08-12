@@ -12,15 +12,19 @@ import (
 	"lbsas/datatypes"
 )
 
-var (
-	MSG_HEAD = []byte("\x29\x29")
-	MSG_TAIL = []byte("\x0D")
+const (
+	MSG_HEAD = "\x29\x29"
+	MSG_TAIL = "\x0D"
 
-	MSG_CMD_UP_NORM_GEO = []byte("\x80")
-	MSG_CMD_DOWN_REP    = []byte("\x21")
+	MSG_CMD_UP_NORM_GEO   = "\x80"
+	MSG_CMD_UP_TIME_PROTO = "\xD6"
+	MSG_CMD_UP_ACK        = "\x85"
 
-	LBS_DATA_LEN = 34
-	ID_LEN       = 4
+	MSG_CMD_DOWN_REP = "\x21"
+	MSG_CMD_DOWN_CFG = "\x7B"
+	MSG_CMD_DOWN_MSG = "\x3A"
+
+	GEO_DATA_LEN = 34
 )
 
 type TY905 struct {
