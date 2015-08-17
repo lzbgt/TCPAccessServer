@@ -21,8 +21,7 @@ var ErrorMessage = map[string]error{
 }
 
 type RawUdpPacket struct {
-	Buff    [80]byte
-	Size    int
+	Buff    []byte
 	Remote  *net.UDPAddr
 	UdpConn *net.UDPConn
 }
@@ -80,7 +79,7 @@ type NetStatus struct {
 	NumInvalidPackets, AvgWorkerTimeMicroSec, AvgDBTimeMicroSec, NumDBWriteMsgCacheSize, NumDBWriteMsgDropped uint64
 
 	StartTime, LastTime, NowTime time.Time
-	//
+
 	//
 	MemStat runtime.MemStats
 }

@@ -27,6 +27,13 @@ type IDBMessage interface {
 	SaveToDB(*DbHelper) error
 }
 
+type IGPSProto interface {
+	New(interface{}) IGPSProto
+	IsValid() bool
+	HandleMsg() bool
+	SaveToDB(*DbHelper) error
+}
+
 type TCMD struct {
 	Id     string
 	Type   string
@@ -210,7 +217,7 @@ func (s *DbHelper) GetIdByImei(imei string) (string, error) {
 }
 
 //user:password@tcp(127.0.0.1:3306)/hello
-func New(env *EnviromentCfg) (*DbHelper, error) {
+func New(env EnviromentCfg) (*DbHelper, error) {
 	log.SetLevel(env.LogLevel)
 	log.SetFormatter(&log.TextFormatter{})
 	LbsUrl = env.LbsUrl
@@ -325,4 +332,55 @@ func New(env *EnviromentCfg) (*DbHelper, error) {
 
 	//
 	return helper, err
+}
+
+func SaveToDB(imei, lat, lon, speed, heading string, ts int64, dbhelper *DbHelper) error {
+	log.Debug("called DBHELPER.SAVETODB")
+	id, err := dbhelper.GetIdByImei(imei)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	sqlStr := `INSERT INTO eventdata(deviceId, timestamp, 
+	     latitude, longitude, speed, heading) VALUES(?,?,?,?,?,?)`
+	stmt, err := dbhelper.Prepare(sqlStr)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+	_, err = stmt.Exec(id, ts, lat, lon, speed, heading)
+	if err != nil {
+		return err
+	}
+
+	if lat == "0" && lon == "0" {
+		stmt2, err := dbhelper.Prepare(`UPDATE devicelatestdata SET lastAckTime=?, 
+		speed=?, heading=?, gpsTimestamp=?, updateTime=? where deviceId=?`)
+		if err != nil {
+			return err
+		}
+		defer stmt2.Close()
+
+		_, err = stmt2.Exec(ts, speed, 0, ts, ts, id)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		stmt2, err := dbhelper.Prepare(`UPDATE devicelatestdata SET lastAckTime=?, 
+	    latitude=?, longitude=?, speed=?, heading=?, gpsTimestamp=?, updateTime=? where deviceId=?`)
+		if err != nil {
+			return err
+		}
+		defer stmt2.Close()
+
+		_, err = stmt2.Exec(ts, lat, lon, speed, 0, ts, ts, id)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }

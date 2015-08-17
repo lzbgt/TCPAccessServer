@@ -49,7 +49,7 @@ var _MessageConstants = &struct {
 // Allocate a new vendor proto. instance
 func New(env *EnviromentCfg) *EWorld {
 	log.SetLevel(env.LogLevel)
-	dbHelper, err := dbh.New(env)
+	dbHelper, err := dbh.New(*env)
 	if err != nil {
 		log.Fatal(err)
 	}

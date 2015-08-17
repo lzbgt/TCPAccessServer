@@ -8,6 +8,7 @@ package udp
 
 import (
 	"fmt"
+	dbh "lbsas/database"
 	. "lbsas/datatypes"
 	"lbsas/vendors/ty905"
 	"net"
@@ -18,13 +19,32 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var GProtoList []dbh.IGPSProto = nil
+var DBHelper *dbh.DbHelper = nil
+
 type UDPServer struct {
-	env EnviromentCfg
+	Env EnviromentCfg
 }
 
+var _udpServer *UDPServer = nil
+
 func New(env EnviromentCfg) *UDPServer {
-	ret := &UDPServer{env}
-	udpAddr, err := net.ResolveUDPAddr("udp", ret.env.TCPAddr)
+	if _udpServer != nil {
+		return _udpServer
+	}
+
+	var err error = nil
+	DBHelper, err = dbh.New(env)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+
+	//
+	GProtoList = []dbh.IGPSProto{ty905.New(RawUdpPacket{})}
+	_udpServer = &UDPServer{env}
+	ret := _udpServer
+	udpAddr, err := net.ResolveUDPAddr("udp", ret.Env.TCPAddr)
 	if err != nil {
 		log.Error(err)
 		return nil
@@ -36,29 +56,31 @@ func New(env EnviromentCfg) *UDPServer {
 		return nil
 	}
 
-	var packetsChan = make(chan *RawUdpPacket, ret.env.MsgCacheSize)
+	var packetsChan = make(chan RawUdpPacket, ret.Env.MsgCacheSize)
 
-	for i := 0; i < ret.env.NumUDPWokers; i++ {
+	for i := 0; i < ret.Env.NumUDPWokers; i++ {
 		go worker(packetsChan)
 	}
+
+	log.Info("dbcache size:", ret.Env.MsgCacheSize, " udp worker num:", ret.Env.NumUDPWokers)
 
 	// !!! MAIN !!!
 	go func() {
 		for {
 			var rawPacket RawUdpPacket
-			// fmt.Println("waiting packets...")
-			n, remote, err := udpConn.ReadFromUDP(rawPacket.Buff[0:])
+			rawPacket.Buff = make([]byte, 160)
+			fmt.Println("waiting packets...")
+			_, remote, err := udpConn.ReadFromUDP(rawPacket.Buff)
 			if err != nil {
 				fmt.Println("Error Reading")
 			} else {
-				rawPacket.Size = n
 				rawPacket.Remote = remote
 				rawPacket.UdpConn = udpConn
 				select {
-				case packetsChan <- &rawPacket:
+				case packetsChan <- rawPacket:
 				default:
 					<-packetsChan
-					packetsChan <- &rawPacket
+					packetsChan <- rawPacket
 				}
 			}
 		}
@@ -70,13 +92,30 @@ func New(env EnviromentCfg) *UDPServer {
 	http.Handle("/", r)
 	go http.ListenAndServe("127.0.0.1:9090", nil)
 	return ret
-
 }
 
-func worker(packetsChan chan *RawUdpPacket) {
+func worker(packetsChan chan RawUdpPacket) {
 	for {
 		rawPacket := <-packetsChan
-		ty905.New(rawPacket).Srv()
+		for _, v := range GProtoList {
+			t := v.New(rawPacket)
+			if t.IsValid() {
+				if t.HandleMsg() {
+					for {
+						select {
+						case DBHelper.DBMsgChan <- t:
+							log.Debug("inserted in to dbcache: ", t)
+							goto BREAK_
+						default:
+							// database pipe overflow, pop the oldest one and insert the new one
+							<-DBHelper.DBMsgChan
+						}
+					}
+				BREAK_:
+				}
+				break
+			}
+		}
 	}
 }
 

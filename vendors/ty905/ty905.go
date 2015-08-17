@@ -7,9 +7,10 @@
 package ty905
 
 import (
-	"encoding/hex"
-	"fmt"
-	"lbsas/datatypes"
+	dbh "lbsas/database"
+	. "lbsas/datatypes"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -28,25 +29,41 @@ const (
 )
 
 type TY905 struct {
-	rawPacket *datatypes.RawUdpPacket
+	rawPacket                      RawUdpPacket
+	imei, lat, lon, speed, heading string
+	gpsTime                        int64
 }
 
-func New(rp *datatypes.RawUdpPacket) *TY905 {
-	return &TY905{rp}
+func New(rp RawUdpPacket) dbh.IGPSProto {
+	return &TY905{rawPacket: rp}
 }
 
-func (s *TY905) Valid() bool {
+func (s *TY905) IsValid() bool {
 	return true
 }
 
-func (s *TY905) Srv() {
-	if !s.Valid() {
-		fmt.Println("Invalid packet")
-		return
+func (s *TY905) New(rp interface{}) dbh.IGPSProto {
+	_rp, ok := rp.(RawUdpPacket)
+	if ok {
+		return &TY905{rawPacket: _rp}
+	} else {
+		log.Error("NIL TY905")
+		return nil
 	}
+}
 
-	fmt.Println(hex.EncodeToString(s.rawPacket.Buff[0:s.rawPacket.Size]), s.rawPacket.Size)
-	s.rawPacket.UdpConn.WriteToUDP(s.rawPacket.Buff[0:s.rawPacket.Size],
-		s.rawPacket.Remote)
+// true to store in DB, false otherwise
+func (s *TY905) HandleMsg() bool {
+	log.Debug("handlemsg called")
+	s.rawPacket.UdpConn.WriteToUDP(s.rawPacket.Buff, s.rawPacket.Remote)
 
+	//
+
+	return true
+}
+
+func (s *TY905) SaveToDB(dbHelper *dbh.DbHelper) error {
+	log.Debug("called save to db")
+	dbh.SaveToDB(s.imei, s.lat, s.lon, s.speed, s.heading, s.gpsTime, dbHelper)
+	return nil
 }
