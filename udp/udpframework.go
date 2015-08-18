@@ -90,7 +90,7 @@ func New(env EnviromentCfg) *UDPServer {
 	r := mux.NewRouter()
 	r.HandleFunc("/api/{component}", _apiHandler)
 	http.Handle("/", r)
-	go http.ListenAndServe("127.0.0.1:9090", nil)
+	go http.ListenAndServe(env.HTTPAddr, nil)
 	return ret
 }
 
@@ -107,7 +107,6 @@ func worker(packetsChan chan RawUdpPacket) {
 							log.Debug("inserted in to dbcache: ", t)
 							goto BREAK_
 						default:
-							// database pipe overflow, pop the oldest one and insert the new one
 							<-DBHelper.DBMsgChan
 						}
 					}

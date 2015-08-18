@@ -363,7 +363,7 @@ func SaveToDB(imei, lat, lon, speed, heading string, ts int64, dbhelper *DbHelpe
 		}
 		defer stmt2.Close()
 
-		_, err = stmt2.Exec(ts, speed, 0, ts, ts, id)
+		_, err = stmt2.Exec(ts, speed, heading, ts, ts, id)
 		if err != nil {
 			return err
 		}
@@ -376,7 +376,7 @@ func SaveToDB(imei, lat, lon, speed, heading string, ts int64, dbhelper *DbHelpe
 		}
 		defer stmt2.Close()
 
-		_, err = stmt2.Exec(ts, lat, lon, speed, 0, ts, ts, id)
+		_, err = stmt2.Exec(ts, lat, lon, speed, heading, ts, ts, id)
 		if err != nil {
 			return err
 		}

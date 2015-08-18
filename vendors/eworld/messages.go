@@ -77,41 +77,10 @@ func (m *GenRespMsg) Parse(parts []string, conn *net.Conn) bool {
 }
 
 func (s *GenRespMsg) SaveToDB(dbhelper *dbh.DbHelper) error {
-
-	id, err := dbhelper.GetIdByImei("WORLD" + string(s.SN))
-	if err != nil {
-		return err
-	}
-
-	// get the time
 	mTime := bytes.Join([][]byte{s.Date[4:6], s.Date[2:4], s.Date[0:2], s.Time}, nil)
-	tm := utils.GetTimestampFromString(mTime).UnixNano() / 1000000
-	sqlStr := `INSERT INTO eventdata(deviceId, timestamp, 
-	     latitude, longitude, speed, heading) VALUES(?,?,?,?,?,?)`
-	stmt, err := dbhelper.Prepare(sqlStr)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	_, err = stmt.Exec(id, tm, s.Latitude, s.Longitude, s.Speed, s.Azimuth)
-	if err != nil {
-		return err
-	}
-
-	stmt2, err := dbhelper.Prepare(`UPDATE devicelatestdata SET lastAckTime=?, 
-	    latitude=?, longitude=?, speed=?, heading=?, gpsTimestamp=?, updateTime=? where deviceId=?`)
-	if err != nil {
-		return err
-	}
-	defer stmt2.Close()
-
-	_, err = stmt2.Exec(tm, s.Latitude, s.Longitude, s.Speed, s.Azimuth, tm, tm, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	ts := utils.GetTimestampFromString(mTime).UnixNano() / 1000000
+	return dbh.SaveToDB("WORLD"+string(s.SN), string(s.Latitude),
+		string(s.Longitude), string(s.Speed), string(s.Azimuth), ts, dbhelper)
 }
 
 //
@@ -170,42 +139,11 @@ func (m *LbsRespMsg) Parse(parts []string, conn *net.Conn) bool {
 }
 
 func (s *LbsRespMsg) SaveToDB(dbhelper *dbh.DbHelper) error {
-
-	id, err := dbhelper.GetIdByImei("WORLD" + string(s.SN))
-	if err != nil {
-		return err
-	}
-
 	lat, lon := dbhelper.GetCellLocationBD(string(s.MCC), string(s.MNC), string(s.LAC), string(s.CELL))
 	// get the time
 	log.Debug("LBS lat:", lat, ",lon:", lon)
-	tm := time.Now().UnixNano() / 1000000
-	sqlStr := `INSERT INTO eventdata(deviceId, timestamp, 
-	     latitude, longitude, speed, heading) VALUES(?,?,?,?,?,?)`
-	stmt, err := dbhelper.Prepare(sqlStr)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	_, err = stmt.Exec(id, tm, lat, lon, 0, 0)
-	if err != nil {
-		return err
-	}
-
-	stmt2, err := dbhelper.Prepare(`UPDATE devicelatestdata SET lastAckTime=?, 
-	    latitude=?, longitude=?, speed=?, heading=?, gpsTimestamp=?, updateTime=? where deviceId=?`)
-	if err != nil {
-		return err
-	}
-	defer stmt2.Close()
-
-	_, err = stmt2.Exec(tm, lat, lon, 0, 0, tm, tm, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	ts := time.Now().UnixNano() / 1000000
+	return dbh.SaveToDB("WORLD"+string(s.SN), lat, lon, "0", "0", ts, dbhelper)
 }
 
 func (m *LbsRespMsg) LogContent() {
