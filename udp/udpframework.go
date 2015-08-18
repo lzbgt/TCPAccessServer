@@ -7,6 +7,7 @@
 package udp
 
 import (
+	"encoding/hex"
 	"fmt"
 	dbh "lbsas/database"
 	. "lbsas/datatypes"
@@ -69,13 +70,14 @@ func New(env EnviromentCfg) *UDPServer {
 		for {
 			var rawPacket RawUdpPacket
 			rawPacket.Buff = make([]byte, 160)
-			fmt.Println("waiting packets...")
+			log.Debug("waiting packets...")
 			_, remote, err := udpConn.ReadFromUDP(rawPacket.Buff)
 			if err != nil {
-				fmt.Println("Error Reading")
+				log.Debug("Error Reading")
 			} else {
 				rawPacket.Remote = remote
 				rawPacket.UdpConn = udpConn
+				log.Debug(hex.Dump(rawPacket.Buff))
 				select {
 				case packetsChan <- rawPacket:
 				default:
