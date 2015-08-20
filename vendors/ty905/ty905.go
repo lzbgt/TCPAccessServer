@@ -8,8 +8,13 @@ package ty905
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	dbh "lbsas/database"
 	. "lbsas/datatypes"
+	"strconv"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -58,6 +63,10 @@ func (s *TY905) IsValid() bool {
 	return false
 }
 
+func (s *TY905) IsWhole() bool {
+	return true
+}
+
 func (s *TY905) New(rp interface{}) dbh.IGPSProto {
 	_rp, ok := rp.(RawUdpPacket)
 	if ok {
@@ -72,9 +81,12 @@ func (s *TY905) New(rp interface{}) dbh.IGPSProto {
 func (s *TY905) HandleMsg() bool {
 	log.Debug("handlemsg called")
 	// s.rawPacket.UdpConn.WriteToUDP(s.rawPacket.Buff, s.rawPacket.Remote)
+	s.imei = "SHTY905" + strings.ToUpper(hex.EncodeToString(s.rawPacket.Buff[5:9]))
+
 	if s.rawPacket.Buff[2] == MSG_CMD_UP_NORM_GEO {
 
 	}
+
 	return true
 }
 
@@ -82,4 +94,40 @@ func (s *TY905) SaveToDB(dbHelper *dbh.DbHelper) error {
 	log.Debug("called save to db")
 	dbh.SaveToDB(s.imei, s.lat, s.lon, s.speed, s.heading, s.gpsTime, dbHelper)
 	return nil
+}
+
+func SimNumberToIP(sim []byte) []byte {
+	ip_byte := make([]byte, 6)
+	barry := make([]byte, 8)
+
+	if len(sim) == 11 {
+		tmp, _ := strconv.ParseInt(string(sim[0]), 10, 8)
+		binary.LittleEndian.PutUint64(barry, uint64(tmp))
+		ip_byte[0] = barry[0]
+
+		for i := 0; i < 5; i++ {
+			tmp, _ := strconv.ParseInt(string(sim[2*i+1:2*i+3]), 10, 16)
+			binary.LittleEndian.PutUint64(barry, uint64(tmp))
+			ip_byte[i+1] = barry[0]
+		}
+
+		ip_byte[1] = (byte)((ip_byte[1] - 30))
+		if (ip_byte[1] & 0x08) == 0x08 {
+			ip_byte[2] = (byte)(ip_byte[2] + 0x80)
+		}
+		if (ip_byte[1] & 0x04) == 0x04 {
+			ip_byte[3] = (byte)(ip_byte[3] + 0x80)
+		}
+		if (ip_byte[1] & 0x02) == 0x02 {
+			ip_byte[4] = (byte)(ip_byte[4] + 0x80)
+		}
+		if (ip_byte[1] & 0x01) == 0x01 {
+			ip_byte[5] = (byte)(ip_byte[5] + 0x80)
+		}
+
+		fmt.Println(hex.EncodeToString(ip_byte[2:6]))
+		return ip_byte[2:6]
+	} else {
+		return nil
+	}
 }

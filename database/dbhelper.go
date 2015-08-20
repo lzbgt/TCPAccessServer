@@ -30,6 +30,7 @@ type IDBMessage interface {
 type IGPSProto interface {
 	New(interface{}) IGPSProto
 	IsValid() bool
+	IsWhole() bool
 	HandleMsg() bool
 	SaveToDB(*DbHelper) error
 }
@@ -193,6 +194,7 @@ func (s *DbHelper) GetIdByImei(imei string) (string, error) {
 		rows, err := s.Query(qStr, imei)
 		if err != nil {
 			log.Error(err, imei)
+			return "", err
 		}
 
 		defer rows.Close()

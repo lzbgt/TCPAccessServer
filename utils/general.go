@@ -81,3 +81,24 @@ func String2LogLevel(strL string) (log.Level, error) {
 
 	return lvl, err
 }
+
+func DecodeTY905Byte(bcd byte) byte {
+	t1 := bcd & 0x0F
+	t2 := (bcd & 0xF0) >> 4
+
+	return t2*10 + t1
+}
+
+func DecodeTY905Time(ts []byte) string {
+	if len(ts) != 6 {
+		return ""
+	} else {
+		for _, v := range ts {
+			v = v
+		}
+	}
+	return ""
+}
+func DecodeTY905Lat(raw []byte) float32 {
+	return 0
+}

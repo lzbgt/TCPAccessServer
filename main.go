@@ -10,8 +10,10 @@ import (
 	"flag"
 	. "lbsas/datatypes"
 	"lbsas/tcp"
+	"lbsas/tcp2"
 	"lbsas/udp"
 	"lbsas/utils"
+	_ "lbsas/vendors/autowill/atr805"
 	"lbsas/vendors/eworld"
 	"lbsas/vendors/gl500/nbsihai"
 	"os"
@@ -39,6 +41,10 @@ func main() {
 		tcp.New(eworld.New(env))
 	} else if env.DType == "ty905" {
 		udp.New(*env)
+	} else if env.DType == "atr805" {
+		tcp2.New(*env)
+	} else {
+		log.Panic("unkown device type")
 	}
 
 	log.Info("Server Started")
