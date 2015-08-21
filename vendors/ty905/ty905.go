@@ -67,14 +67,14 @@ func (s *TY905) IsWhole() bool {
 	return true
 }
 
-func (s *TY905) New(rp interface{}) dbh.IGPSProto {
-	_rp, ok := rp.(RawUdpPacket)
-	if ok {
-		return &TY905{rawPacket: _rp}
-	} else {
-		log.Error("NIL TY905")
-		return nil
+func (s *TY905) New(args ...interface{}) dbh.IGPSProto {
+	if len(args) > 0 {
+		_rp, ok := args[0].(RawUdpPacket)
+		if ok {
+			return &TY905{rawPacket: _rp}
+		}
 	}
+	return nil
 }
 
 // true to store in DB, false otherwise

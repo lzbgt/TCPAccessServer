@@ -10,3 +10,17 @@ func TestDecodeTY905Byte(t *testing.T) {
 	}
 
 }
+
+func TestEncodeCBCDByte(t *testing.T) {
+	b := EncodeCBCDByte("12")
+	if b != 0x12 {
+		t.Error("expected", 0x12, "got", b)
+	}
+}
+
+func TestEncodeCBCDFromString(t *testing.T) {
+	b := EncodeCBCDFromString("F23A")
+	if b[0] != 0xF2 || b[1] != 0x3A {
+		t.Error("expected", 0xF23A, "got", b)
+	}
+}

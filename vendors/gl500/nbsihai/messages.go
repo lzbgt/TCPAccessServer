@@ -87,7 +87,7 @@ func (m *MessageResp) Parse(parts []string, conn *net.Conn) bool {
 
 func (s *MessageResp) SaveToDB(dbhelper *dbh.DbHelper) error {
 
-	id, err := dbhelper.GetIdByImei(string(s.UID))
+	id, err := dbh.GetIdByImei(string(s.UID))
 	if err != nil {
 		return err
 	}

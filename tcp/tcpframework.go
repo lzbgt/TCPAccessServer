@@ -7,7 +7,6 @@
 package tcp
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	. "lbsas/datatypes"
@@ -185,51 +184,6 @@ func (s *TCPServer) tcpStartSession(conn net.Conn) {
 	s.StatTcp.NumConnClosed++
 }
 
-func (s *TCPServer) getStatus() []byte {
-	temp := s.StatTcp
-	vendorStatTmp := s.v.GetStat()
-	var ret []byte
-
-	s.StatTcpLast.LastTime = s.StatTcpLast.NowTime
-	s.StatTcpLast.NowTime = time.Now()
-	// NxxPS
-	tdelta := float32(s.StatTcpLast.NowTime.Unix() - s.StatTcpLast.LastTime.Unix())
-	s.StatTcpLast.NumDBMsgStoredPS = (float32)(temp.NumDBMsgStored-s.StatTcpLast.NumDBMsgStored) / tdelta
-	s.StatTcpLast.NumErrorRcvPS = (float32)(temp.NumErrorRcv-s.StatTcpLast.NumErrorRcv) / tdelta
-	s.StatTcpLast.NumPktsDropedPS = (float32)(temp.NumPktsDroped-s.StatTcpLast.NumPktsDroped) / tdelta
-	s.StatTcpLast.NumPktsReceivedPS = (float32)(temp.NumPktsReceived-s.StatTcpLast.NumPktsReceived) / tdelta
-	s.StatTcpLast.NumInvalidPktsPS = (float32)(vendorStatTmp.NumInvalidPackets-s.StatTcpLast.NumInvalidPkts) / tdelta
-	s.StatTcpLast.NumConnClosedPS = (float32)(temp.NumConnClosed-s.StatTcpLast.NumConnClosed) / tdelta
-	s.StatTcpLast.NumConnCreatedPS = (float32)(temp.NumConnCreated-s.StatTcpLast.NumConnCreated) / tdelta
-	s.StatTcpLast.NumDBWriteMsgDroppedPS = (float32)(vendorStatTmp.DBWriteMsgDropped-s.StatTcpLast.NumDBWriteMsgDropped) / tdelta
-
-	// max
-	//
-
-	// NumxxLast
-	s.StatTcpLast.NumDBMsgStored = temp.NumDBMsgStored
-	s.StatTcpLast.NumErrorRcv = temp.NumErrorRcv
-	s.StatTcpLast.NumPktsDroped = temp.NumPktsDroped
-	s.StatTcpLast.NumPktsReceived = temp.NumPktsReceived
-	s.StatTcpLast.NumInvalidPkts = vendorStatTmp.NumInvalidPackets
-	s.StatTcpLast.NumConnClosed = temp.NumConnClosed
-	s.StatTcpLast.NumConnCreated = temp.NumConnCreated
-	s.StatTcpLast.NumDBWriteMsgDropped = vendorStatTmp.DBWriteMsgDropped
-	s.StatTcpLast.NumDBMsgStored = vendorStatTmp.NumDBMsgStored
-
-	//
-	s.StatTcpLast.AvgWorkerTimeMicroSec = vendorStatTmp.AvgWorkerTimeMicroSec
-	s.StatTcpLast.AvgDBTimeMicroSec = vendorStatTmp.AvgDBTimeMicroSec
-	s.StatTcpLast.NumInvalidPackets = vendorStatTmp.NumInvalidPackets
-	s.StatTcpLast.NumDBWriteMsgCacheSize = vendorStatTmp.DBWriteMsgCacheSize
-	//
-	s.StatTcpLast.NumConnActive = s.StatTcpLast.NumConnCreated - s.StatTcpLast.NumConnClosed
-
-	//
-	ret, _ = json.Marshal(s.StatTcpLast)
-	return ret
-}
-
 // code for statistics, just skip it
 func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 
@@ -239,7 +193,7 @@ func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 		coapi := vars["component"]
 		switch coapi {
 		case "tcpstatus":
-			ret = s.getStatus()
+			//
 		case "set":
 			lvl, err := utils.String2LogLevel(r.FormValue("loglevel"))
 			if err == nil {
@@ -255,8 +209,6 @@ func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(ret)
 	} else {
-		// write to database
-		s.Reportor.Info(string(s.getStatus()))
 	}
 }
 

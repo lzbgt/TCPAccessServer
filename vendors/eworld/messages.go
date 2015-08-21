@@ -139,7 +139,7 @@ func (m *LbsRespMsg) Parse(parts []string, conn *net.Conn) bool {
 }
 
 func (s *LbsRespMsg) SaveToDB(dbhelper *dbh.DbHelper) error {
-	lat, lon := dbhelper.GetCellLocationBD(string(s.MCC), string(s.MNC), string(s.LAC), string(s.CELL))
+	lat, lon := dbh.GetCellLocationBD(string(s.MCC), string(s.MNC), string(s.LAC), string(s.CELL))
 	// get the time
 	log.Debug("LBS lat:", lat, ",lon:", lon)
 	ts := time.Now().UnixNano() / 1000000

@@ -45,7 +45,6 @@ type EnviromentCfg struct {
 // vendor
 type Vendor interface {
 	GetCfg() *NetConfig
-	GetStat() *VendorStat
 	SetLogLevel(log.Level)
 	Close()
 	TcpWorker(packetsChan chan *RawTcpPacket)

@@ -49,9 +49,11 @@ var _MessageConstants = &struct {
 // Allocate a new vendor proto. instance
 func New(env *EnviromentCfg) *EWorld {
 	log.SetLevel(env.LogLevel)
-	dbHelper, err := dbh.New(*env)
-	if err != nil {
-		log.Fatal(err)
+	dbHelper := dbh.New(*env)
+
+	//
+	if dbHelper == nil {
+		panic("Cann't connect to database")
 	}
 
 	log.Info(fmt.Sprintf("%v", *env))
@@ -129,13 +131,6 @@ func (s *EWorld) GetCfg() *NetConfig {
 	return &(s.TcpConfig)
 }
 
-func (s *EWorld) GetStat() *VendorStat {
-	s.Stat.AvgDBTimeMicroSec = s.AvgDBTimeMicroSec
-	s.Stat.DBWriteMsgCacheSize = uint64(len(s.DBMsgChan))
-	s.Stat.NumDBMsgStored = s.NumDBMsgStored
-	return &(s.Stat)
-}
-
 func (s *EWorld) Close() {
 	s.Close()
 	close(s.DBMsgChan)
@@ -181,7 +176,7 @@ func (s *EWorld) handlePacket(packet *RawTcpPacket) bool {
 func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 	//
 	imei := "WORLD" + sn
-	id, err := s.GetIdByImei(imei)
+	id, err := dbh.GetIdByImei(imei)
 	if err != nil {
 		log.Error("device not existed: ", imei, err)
 		return false
@@ -190,20 +185,20 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 	sentCmd := false
 	cmdError := false
 	// *TH,2020916012,I1,050400,0,0,14,XRDDCS12001440#
-	cmd := s.GetCmd(id, CMD_TYPE_REPINTV)
+	cmd := dbh.GetCmd(id, CMD_TYPE_REPINTV)
 	//log.Debug("query for cmd: ", id, ":", CMD_TYPE_REPINTV)
 	if cmd != nil && cmd.Status == CMD_STATUS_PENDING {
 		log.Debug("got cmd: ", cmd)
-		_cmd := s.GetCmdFromDb(id, CMD_TYPE_REPINTV)
+		_cmd := dbh.GetCmdFromDb(id, CMD_TYPE_REPINTV)
 		if _cmd != nil {
 			if cmd.Id != _cmd.Id {
-				s.CommitCmdToDb(cmd, "OVERWRITE")
+				dbh.CommitCmdToDb(cmd, "OVERWRITE")
 			}
 
 			cmd.Params = _cmd.Params
 			cmd.Id = _cmd.Id
 		} else {
-			s.DeleteCmd(id, CMD_TYPE_REPINTV)
+			dbh.DeleteCmd(id, CMD_TYPE_REPINTV)
 			goto HANDLED_CMD
 		}
 
@@ -235,14 +230,14 @@ func (s *EWorld) handleCmds(sn string, conn *net.Conn) bool {
 			sentCmd = true
 			cmd.Status = CMD_STATUS_APPLIED
 			log.Debug("cmd sent: ", cmd)
-			s.CommitCmdToDb(cmd, CMD_STATUS_APPLIED)
+			dbh.CommitCmdToDb(cmd, CMD_STATUS_APPLIED)
 		}
 	}
 
 HANDLED_CMD:
 	if cmdError {
 		log.Error("invalid cmd:", cmd)
-		s.CommitCmdToDb(cmd, "INVALID")
+		dbh.CommitCmdToDb(cmd, "INVALID")
 	}
 
 	if !sentCmd {

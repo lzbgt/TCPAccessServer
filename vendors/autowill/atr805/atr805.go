@@ -2,14 +2,17 @@ package atr805
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	dbh "lbsas/database"
 	"lbsas/gcj02"
 	"lbsas/tcp2"
 	"lbsas/utils"
+	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -27,19 +30,30 @@ const (
 )
 
 type Atr805 struct {
-	buff                           []byte
-	imei, lat, lon, speed, heading string
-	gpsTime                        int64
+	buff []byte
+	imei, lat, lon,
+	speed, heading string
+	gpsTime int64
+	conn    *net.Conn
 }
 
-func New(buff []byte) dbh.IGPSProto {
-	return &Atr805{buff: buff}
+type LBSData struct {
+	MCC, MNC, LAC, CellID string
+	Power, TA             byte
 }
 
-func (s *Atr805) New(param interface{}) dbh.IGPSProto {
-	if buff, ok := param.([]byte); ok {
-		log.Debug("received0 : ", hex.EncodeToString(buff))
-		return &Atr805{buff: buff}
+func New() dbh.IGPSProto {
+	return &Atr805{}
+}
+
+func (s *Atr805) New(args ...interface{}) dbh.IGPSProto {
+	if len(args) == 2 {
+		if buff, ok := args[0].([]byte); ok {
+			log.Debug("received0 : ", hex.EncodeToString(buff))
+			if conn, ok := args[1].(*net.Conn); ok {
+				return &Atr805{buff: buff, conn: conn}
+			}
+		}
 	}
 	return nil
 }
@@ -58,15 +72,18 @@ func (s *Atr805) IsWhole() bool {
 	if len(s.buff[5:]) == b && s.buff[len(s.buff)-1] == '\x0d' {
 		return true
 	}
-	log.Error("invalid length:", s.buff)
-	return true
+
+	log.Error("invalid length:", s.buff, "expected:", b, "actual:", len(s.buff[5:]), "last:", s.buff[len(s.buff)-1])
+	return false
 }
 
-// true to store in DB, false otherwise
+//
 func (s *Atr805) HandleMsg() bool {
 	log.Debug("handlemsg called")
 	// s.rawPacket.UdpConn.WriteToUDP(s.rawPacket.Buff, s.rawPacket.Remote)
 	s.imei = "ATR" + strings.ToUpper(hex.EncodeToString(s.buff[5:11]))
+
+	handleCmds(s)
 
 	if s.buff[2] == PACKET_UP_GPS {
 		lat := float64(utils.DecodeTY905Byte(s.buff[0xb])) + (float64(utils.DecodeTY905Byte(s.buff[0xc]))+
@@ -84,12 +101,38 @@ func (s *Atr805) HandleMsg() bool {
 		s.speed = "0"
 		return true
 	} else if s.buff[2] == PACKET_UP_LBS {
-		//numCells := s.buff[0xb]
-		//base := int(0x0c)
-
+		numcells := int(s.buff[0xb])
+		lbsdata := make([]LBSData, numcells)
+		width := 11
+		base := int(0x0c)
+		var lat, lon string
+		var i int
+		for i = 0; i < numcells; i++ {
+			index := base + i*width
+			mcc := strconv.Itoa(int(utils.DecodeTY905Byte(s.buff[index]))*100 + int(utils.DecodeTY905Byte(s.buff[index+1])))
+			mnc := strconv.Itoa(int(utils.DecodeTY905Byte(s.buff[index+2])))
+			lac := strconv.Itoa(int(utils.DecodeTY905Byte(s.buff[index+3]))*10000 + int(utils.DecodeTY905Byte(s.buff[index+4]))*100 +
+				int(utils.DecodeTY905Byte(s.buff[index+5])))
+			cid := strconv.Itoa(int(utils.DecodeTY905Byte(s.buff[index+6]))*10000 + int(utils.DecodeTY905Byte(s.buff[index+7]))*100 + int(utils.DecodeTY905Byte(s.buff[index+8])))
+			pwr := utils.DecodeTY905Byte(s.buff[index+9])
+			ta := utils.DecodeTY905Byte(s.buff[index+10])
+			lbsdata[i] = LBSData{mcc, mnc, lac, cid, pwr, ta}
+			// TODO: we will improve the accuracy in the future,
+			// but for now we just simply look for the first one available
+			lat, lon = dbh.GetCellLocationBD(mcc, mnc, lac, cid)
+			if lat != "0" && lac != "0" {
+				break
+			}
+		}
+		if i != numcells {
+			s.lat = lat
+			s.lon = lon
+			s.gpsTime = time.Now().UnixNano() / 1000000
+			return true
+		}
 	}
 
-	return true
+	return false
 }
 
 func (s *Atr805) SaveToDB(dbHelper *dbh.DbHelper) error {
@@ -98,8 +141,80 @@ func (s *Atr805) SaveToDB(dbHelper *dbh.DbHelper) error {
 	return nil
 }
 
+func handleCmdRepInterval(cmd *dbh.TCMD, atr *Atr805) bool {
+	params := strings.Split(cmd.Params, ",")
+	if len(params) == 2 && len(params[0]) == 4 && len(params[1]) > 0 {
+
+		head := []byte("\x92\x29\x7F\x00\x12")
+		sn := utils.EncodeCBCDFromString(atr.imei[3:])
+		mask_retry := []byte("\x01\x0A")
+		interval := make([]byte, 4)
+		_interval, err := strconv.Atoi(params[1])
+		if err != nil {
+			log.Error(err, cmd)
+			dbh.CommitCmdToDb(cmd, "INVALID")
+			return false
+		}
+		binary.BigEndian.PutUint32(interval, uint32(_interval))
+		tail := []byte("\xff\x0d")
+		cmdBuff := bytes.Join([][]byte{head, sn, mask_retry, interval, interval, tail}, nil)
+		log.Info("applied cmd: ", hex.EncodeToString(cmdBuff))
+		(*atr.conn).Write(cmdBuff)
+		cmd.Status = dbh.CMD_STATUS_APPLIED
+		dbh.CommitCmdToDb(cmd, dbh.CMD_STATUS_APPLIED)
+		return true
+	}
+	return false
+}
+
+type TCmdFunc func(*dbh.TCMD, *Atr805) bool
+
+var _cmdMap = map[string]TCmdFunc{
+	dbh.CMD_TYPE_REPINTV: handleCmdRepInterval,
+}
+
+//
+func handleCmds(atr *Atr805) bool {
+	//
+	imei := atr.imei
+	id, err := dbh.GetIdByImei(imei)
+	if err != nil {
+		log.Error("device not existed: ", imei, err)
+		return false
+	}
+
+	cmds := dbh.GetCmds(id)
+	for _, v := range cmds {
+		if v == nil {
+			continue
+		}
+		if v.Status == dbh.CMD_STATUS_PENDING {
+			log.Debug("got cmd: ", v)
+			_cmd := dbh.GetCmdFromDb(id, v.Type)
+			if _cmd != nil {
+				if v.Id != _cmd.Id {
+					dbh.CommitCmdToDb(v, "OVERWRITE")
+				}
+				v.Params = _cmd.Params
+				v.Id = _cmd.Id
+			} else {
+				dbh.DeleteCmd(id, v.Type)
+				goto HANDLED_CMD
+			}
+
+			if fn, ok := _cmdMap[_cmd.Type]; ok {
+				fn(_cmd, atr)
+			}
+		}
+	}
+
+HANDLED_CMD:
+
+	return true
+}
+
 func init() {
 	log.SetLevel(log.DebugLevel)
-	tcp2.Register(New(nil))
+	tcp2.Register(New())
 	log.Debug("registered")
 }

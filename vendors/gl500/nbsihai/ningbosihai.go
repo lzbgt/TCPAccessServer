@@ -49,9 +49,10 @@ var _MessageConstants = &struct {
 // Allocate a new vendor proto. instance
 func New(env *EnviromentCfg) *NbSiHai {
 	log.SetLevel(env.LogLevel)
-	dbHelper, err := dbh.New(*env)
-	if err != nil {
-		log.Fatal(err)
+	dbHelper := dbh.New(*env)
+	if dbHelper == nil {
+		log.Fatal("can't connect to database")
+		return nil
 	}
 
 	log.Info(fmt.Sprintf("%v", *env))
@@ -118,13 +119,6 @@ func (s *NbSiHai) IsWholePacket(buff []byte, status *int) (bool, error) {
 
 func (s *NbSiHai) GetCfg() *NetConfig {
 	return &(s.TcpConfig)
-}
-
-func (s *NbSiHai) GetStat() *VendorStat {
-	s.Stat.AvgDBTimeMicroSec = s.AvgDBTimeMicroSec
-	s.Stat.DBWriteMsgCacheSize = uint64(len(s.DBMsgChan))
-	s.Stat.NumDBMsgStored = s.NumDBMsgStored
-	return &(s.Stat)
 }
 
 func (s *NbSiHai) Close() {

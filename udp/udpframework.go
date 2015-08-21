@@ -35,9 +35,9 @@ func New(env EnviromentCfg) *UDPServer {
 	}
 
 	var err error = nil
-	DBHelper, err = dbh.New(env)
-	if err != nil {
-		log.Error(err)
+	DBHelper = dbh.New(env)
+	if DBHelper == nil {
+		log.Error("failed to connect to database")
 		return nil
 	}
 

@@ -35,16 +35,15 @@ type TCPServer struct {
 func New(env EnviromentCfg) *TCPServer {
 	log.SetLevel(env.LogLevel)
 	log.SetFormatter(&log.TextFormatter{})
-	var err error = nil
+
 	if gEnv == nil {
 		gEnv = &env
 	}
 
 	if gDBHelper == nil {
-		gDBHelper, err = dbh.New(env)
-		if err != nil {
-			log.Error(err)
-			return nil
+		gDBHelper = dbh.New(env)
+		if gDBHelper == nil {
+			log.Fatal("no database connection")
 		}
 	}
 
@@ -93,10 +92,8 @@ func tcpStartSession(conn net.Conn) {
 	defer conn.Close()
 	packetsChan := make(chan dbh.IGPSProto, gEnv.QueueSizePerConn)
 	defer close(packetsChan)
-
 	var proto dbh.IGPSProto = nil
 
-	// create a default worker
 	go tcpWorker(packetsChan)
 
 	var (
@@ -117,15 +114,6 @@ func tcpStartSession(conn net.Conn) {
 		if err != nil {
 			break
 		}
-		// for terminal test
-		for i := 0; i < 2; i++ {
-			if last+n > 0 {
-				if buff[last+n-1] == 0x0a || buff[last+n-1] == 0x0d {
-					buff[last+n-1] = 0
-					n--
-				}
-			}
-		}
 		if n == 0 {
 			log.Debug("empty packet, continue")
 			continue
@@ -138,14 +126,14 @@ func tcpStartSession(conn net.Conn) {
 					continue
 				}
 				log.Debug("v: ", v)
-				t := v.New(buff[:last+n])
+				t := v.New(buff[:last+n], &conn)
 				if t.IsValid() {
 					proto = t
 					break
 				}
 			}
 		} else {
-			proto = proto.New(buff[:last+n])
+			proto = proto.New(buff[:last+n], conn)
 		}
 
 		if proto == nil {
@@ -176,7 +164,6 @@ func tcpStartSession(conn net.Conn) {
 	}
 }
 
-// code for statistics, just skip it
 func (s *TCPServer) _apiHandlerTcp(w http.ResponseWriter, r *http.Request) {
 	var ret []byte
 	vars := mux.Vars(r)
