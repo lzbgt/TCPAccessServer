@@ -63,8 +63,8 @@ func (s *TY905) IsValid() bool {
 	return false
 }
 
-func (s *TY905) IsWhole() bool {
-	return true
+func (s *TY905) IsWhole() int {
+	return 0
 }
 
 func (s *TY905) New(args ...interface{}) dbh.IGPSProto {

@@ -142,10 +142,18 @@ func tcpStartSession(conn net.Conn) {
 		}
 
 		whole := proto.IsWhole()
-		if !whole {
+		if whole < 0 {
 			last += n
 			log.Debug("not whole packet:", proto)
 		} else {
+			if whole == 0 {
+			} else {
+				proto = proto.New(buff[:len(buff)-whole])
+				tmp := make([]byte, MAX_PACKET_LEN)
+				copy(tmp, buff[len(buff)-whole:])
+				buff = tmp
+			}
+			last = whole
 			select {
 			case packetsChan <- proto:
 			default:

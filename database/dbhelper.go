@@ -30,7 +30,7 @@ type IDBMessage interface {
 type IGPSProto interface {
 	New(args ...interface{}) IGPSProto
 	IsValid() bool
-	IsWhole() bool
+	IsWhole() int
 	HandleMsg() bool
 	SaveToDB(*DbHelper) error
 }

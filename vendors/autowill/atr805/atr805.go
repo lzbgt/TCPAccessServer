@@ -67,14 +67,17 @@ func (s *Atr805) IsValid() bool {
 	return false
 }
 
-func (s *Atr805) IsWhole() bool {
-	b := int(s.buff[3]<<8 + s.buff[4])
+func (s *Atr805) IsWhole() int {
+	// multi-partial packets enhencement.
+	b := int(s.buff[3])<<8 + int(s.buff[4])
 	if len(s.buff[5:]) == b && s.buff[len(s.buff)-1] == '\x0d' {
-		return true
+		return 0
+	} else if len(s.buff[5:]) > b && s.buff[b+5] == '\x0d' {
+		return len(s.buff) - b - 5
 	}
 
 	log.Error("invalid length:", s.buff, "expected:", b, "actual:", len(s.buff[5:]), "last:", s.buff[len(s.buff)-1])
-	return false
+	return -1
 }
 
 //
@@ -87,9 +90,9 @@ func (s *Atr805) HandleMsg() bool {
 
 	if s.buff[2] == PACKET_UP_GPS {
 		lat := float64(utils.DecodeTY905Byte(s.buff[0xb])) + (float64(utils.DecodeTY905Byte(s.buff[0xc]))+
-			float64(utils.DecodeTY905Byte(s.buff[0xd]))/100+float64(utils.DecodeTY905Byte(s.buff[0xe]))/10000)/90
+			float64(utils.DecodeTY905Byte(s.buff[0xd]))/100+float64(utils.DecodeTY905Byte(s.buff[0xe]))/10000)/60
 		lon := float64(utils.DecodeTY905Byte(s.buff[0x12])) + float64(utils.DecodeTY905Byte(s.buff[0x13]))/100 + float64(utils.DecodeTY905Byte(s.buff[0x14]))/10000
-		lon = lon/90 + float64(utils.DecodeTY905Byte(s.buff[0x10]))*100 + float64(utils.DecodeTY905Byte(s.buff[0x11]))
+		lon = lon/60 + float64(utils.DecodeTY905Byte(s.buff[0x10]))*100 + float64(utils.DecodeTY905Byte(s.buff[0x11]))
 		lat, lon = gcj02.WGStoBD(lat, lon)
 		s.lat = strconv.FormatFloat(lat, 'f', 4, 64)
 		s.lon = strconv.FormatFloat(lon, 'f', 4, 64)
@@ -141,11 +144,29 @@ func (s *Atr805) SaveToDB(dbHelper *dbh.DbHelper) error {
 	return nil
 }
 
+// --- cmd related code
+type TCmdFunc func(*dbh.TCMD, *Atr805) bool
+
+var _cmdMap = map[string]TCmdFunc{
+	dbh.CMD_TYPE_REPINTV: handleCmdRepInterval,
+}
+
+//
+func confirmMessage(atr *Atr805) bool {
+	head := []byte("\x92\x29\x21\x00\x0a")
+	sn := utils.EncodeCBCDFromString(atr.imei[3:])
+	rest := []byte{atr.buff[2], 0xFF, 0xFF, 0x0D}
+	cmdBuff := bytes.Join([][]byte{head, sn, rest}, nil)
+	log.Debug("confirm msg: ", hex.EncodeToString(cmdBuff))
+	(*atr.conn).Write(cmdBuff)
+	return true
+}
+
+//
 func handleCmdRepInterval(cmd *dbh.TCMD, atr *Atr805) bool {
 	params := strings.Split(cmd.Params, ",")
 	if len(params) == 2 && len(params[0]) == 4 && len(params[1]) > 0 {
-
-		head := []byte("\x92\x29\x7F\x00\x12")
+		head := []byte("\x92\x29\x7F\x00\x1D")
 		sn := utils.EncodeCBCDFromString(atr.imei[3:])
 		mask_retry := []byte("\x01\x0A")
 		interval := make([]byte, 4)
@@ -165,12 +186,6 @@ func handleCmdRepInterval(cmd *dbh.TCMD, atr *Atr805) bool {
 		return true
 	}
 	return false
-}
-
-type TCmdFunc func(*dbh.TCMD, *Atr805) bool
-
-var _cmdMap = map[string]TCmdFunc{
-	dbh.CMD_TYPE_REPINTV: handleCmdRepInterval,
 }
 
 //
@@ -209,7 +224,8 @@ func handleCmds(atr *Atr805) bool {
 	}
 
 HANDLED_CMD:
-
+	// TODO need device to test
+	confirmMessage(atr)
 	return true
 }
 
