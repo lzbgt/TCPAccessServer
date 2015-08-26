@@ -93,6 +93,7 @@ func tcpStartSession(conn net.Conn) {
 	packetsChan := make(chan dbh.IGPSProto, gEnv.QueueSizePerConn)
 	defer close(packetsChan)
 	var proto dbh.IGPSProto = nil
+	var protoTmp dbh.IGPSProto = nil
 
 	go tcpWorker(packetsChan)
 
@@ -137,7 +138,7 @@ func tcpStartSession(conn net.Conn) {
 		}
 
 		if proto == nil {
-			log.Error("protocol not supported", hex.EncodeToString(buff[:last+n]))
+			log.Error("protocol not supported: ", hex.EncodeToString(buff[:last+n]))
 			return
 		}
 
@@ -147,18 +148,24 @@ func tcpStartSession(conn net.Conn) {
 			log.Debug("not whole packet:", proto)
 		} else {
 			if whole == 0 {
+				tmp := make([]byte, MAX_PACKET_LEN)
+				copy(tmp, buff)
+				protoTmp = proto.New(tmp)
+
 			} else {
-				proto = proto.New(buff[:len(buff)-whole])
+				protoTmp = proto.New(buff[:len(buff)-whole])
 				tmp := make([]byte, MAX_PACKET_LEN)
 				copy(tmp, buff[len(buff)-whole:])
 				buff = tmp
 			}
+			// reset last
 			last = whole
+
 			select {
-			case packetsChan <- proto:
+			case packetsChan <- protoTmp:
 			default:
 				<-packetsChan
-				packetsChan <- proto
+				packetsChan <- protoTmp
 				log.Error("Receiv buff overflow. From:", conn.RemoteAddr(), ", proto: ", proto)
 			}
 		}
